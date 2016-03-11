@@ -2,16 +2,19 @@ package suffuse
 package tests
 
 import jio._
-import scala.sys.process.Process
+import org.junit._, Assert._
 
 final class IdfsTests {
   val mnt = createTempDirectory("idfs")
 
   @Test
   def mountHomeDir(): Unit = {
-    val fs  = new idfs(homeDir, mnt)
+    val fs  = idfs(homeDir, mnt)
+
     fs.mount()
-    assert(Process("diff", "-r", homeDir, mnt).!! == 0)
-    fs.unmount()
+    val s1 = mnt.list.map(_.filename).sorted.mkString(" ")
+    val s2 = homeDir.list.map(_.filename).sorted.mkString(" ")
+    assertEquals(s1, s2)
+    fs.unmountTry() // Fails usually otherwise
   }
 }

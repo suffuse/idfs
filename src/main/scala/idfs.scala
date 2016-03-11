@@ -8,9 +8,11 @@ import types.TypeMode.{ ModeWrapper, NodeType }
 import jio._
 
 object idfs {
+  def apply(from: Path, to: Path): idfs = new idfs(from, to)
+
   def main(args: Array[String]): Unit = args.toList match {
-    case from :: to :: Nil => new idfs(path(from), path(to)) mount
-    case from :: Nil       => new idfs(path(from), path("/mnt")) mount
+    case from :: to :: Nil => idfs(path(from), path(to)).logging().mount()
+    case from :: Nil       => idfs(path(from), path("/mnt")).logging().mount()
     case _                 => println("Usage: idfs <from> <to>")
   }
 }
@@ -18,10 +20,10 @@ object idfs {
 class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   val mountPoint: File = to.toFile.getAbsoluteFile
 
-  def mount(): Unit = {
-    log(true)
-    super.mount(mountPoint)
-  }
+  def logging(): this.type = effect[this.type](this)(this log true)
+  def mount(): Unit        = super.mount(mountPoint, false) // blocking=false
+  def mountfg(): Unit      = super.mount(mountPoint, true) // blocking=true
+  def unmountTry(): Unit   = Try(unmount())
 
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
     val p    = resolvePath(path)

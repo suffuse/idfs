@@ -4,6 +4,7 @@ import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
+import scala.collection.JavaConverters._
 
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
@@ -19,6 +20,14 @@ package object jio extends JioFiles {
     }
   }
 
+  implicit class StreamOps[A](val xs: jStream[A]) extends AnyVal {
+    def toVector: Vector[A] = {
+      val buf = Vector.newBuilder[A]
+      xs.iterator.asScala foreach (x => buf += x)
+      buf.result
+    }
+  }
+
   implicit class PathOps(val p: Path) extends AnyVal {
     def /(name: String): Path = p resolve name
 
@@ -27,14 +36,15 @@ package object jio extends JioFiles {
     def isSymbolicLink()                 = Files isSymbolicLink p
     def readSymbolicLink()               = Files readSymbolicLink p
     def readAllBytes()                   = Files readAllBytes p
+    def list(): Vector[Path]             = Files list p toVector
+    def filename: String                 = p.getFileName.toString
 
     def openChannel(opts: OpenOption*): FileChannel = jnc.FileChannel.open(p, opts: _*)
   }
 
   def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
   def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
-
-  def homeDir: Path = path(sys.props("user.home"))
+  def homeDir: Path                      = path(sys.props("user.home"))
 
   type jArray[A]        = Array[A with Object]
   type jClass           = java.lang.Class[_]
@@ -47,6 +57,7 @@ package object jio extends JioFiles {
   type jMap[K, V]       = java.util.Map[K, V]
   type jMethod          = java.lang.reflect.Method
   type jSet[A]          = java.util.Set[A]
+  type jStream[+A]      = java.util.stream.Stream[A @uV]
   type jUri             = java.net.URI
   type jUrl             = java.net.URL
 

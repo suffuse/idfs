@@ -12,7 +12,6 @@ lazy val idfs = project in file(".") dependsOn `fuse-jna` settings (
             licenses :=  Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
         scalaVersion :=  "2.11.8",
          logBuffered :=  false,
-                test <<= run in Test toTask "",
            maxErrors :=  10,
     triggeredMessage :=  Watched.clearWhenTriggered
 )
