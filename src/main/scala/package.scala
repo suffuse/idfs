@@ -3,7 +3,7 @@ import java.nio.channels.FileChannel
 import net.fusejna.ErrorCodes._
 import scala.util.{ Try, Success, Failure }
 
-package object psp {
+package object suffuse {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
 
   type ByteBuffer    = java.nio.ByteBuffer

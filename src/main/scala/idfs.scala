@@ -1,4 +1,4 @@
-package psp
+package suffuse
 
 import net.fusejna._
 import StructFlock.FlockWrapper
