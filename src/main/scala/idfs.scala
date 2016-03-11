@@ -16,7 +16,8 @@ object idfs {
 }
 
 class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
-  def mountPoint: String = to.toFile.getAbsolutePath
+  val mountPoint: File = to.toFile.getAbsoluteFile
+
   def mount(): Unit = {
     log(true)
     super.mount(mountPoint)
@@ -32,6 +33,16 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
         buf.put(data, offset.toInt, size.toInt)
     )
   }
+  override def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
+    def impl(): Unit = {
+      val arr = new Array[Byte](size.toInt)
+      buf get arr
+      val f = resolveFile(path)
+      f appending (_ write arr)
+    }
+    Try(impl) fold (_ => -1, _ => size.toInt)
+  }
+
   override def lock(path: String, info: FileInfoWrapper, command: FlockCommand, flock: FlockWrapper): Int = {
     tryFuse(resolvePath(path).openChannel().tryLock())
   }

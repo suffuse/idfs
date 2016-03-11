@@ -5,26 +5,36 @@ import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
 
-package object jio {
+package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
 
   implicit class FileOps(val f: File) extends AnyVal {
     def mtime: Long      = f.lastModified / 1000L
     def blockCount: Long = (f.length + blockSize - 1) / blockSize
     def blockSize: Int   = 512 // FIXME
+
+    def appending[A](g: FileOutputStream => A): A = {
+      val stream = new FileOutputStream(f, true) // append = true
+      try g(stream) finally stream.close()
+    }
   }
 
   implicit class PathOps(val p: Path) extends AnyVal {
-    def exists             = p.toFile.exists
-    def isSymbolicLink()   = Files isSymbolicLink p
-    def readSymbolicLink() = Files readSymbolicLink p
-    def readAllBytes()     = Files readAllBytes p
+    def /(name: String): Path = p resolve name
+
+    def mkdir(attrs: AnyFileAttr*): Path = createDirectory(p, attrs: _*)
+    def exists                           = p.toFile.exists
+    def isSymbolicLink()                 = Files isSymbolicLink p
+    def readSymbolicLink()               = Files readSymbolicLink p
+    def readAllBytes()                   = Files readAllBytes p
 
     def openChannel(opts: OpenOption*): FileChannel = jnc.FileChannel.open(p, opts: _*)
   }
 
   def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
   def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
+
+  def homeDir: Path = path(sys.props("user.home"))
 
   type jArray[A]        = Array[A with Object]
   type jClass           = java.lang.Class[_]
