@@ -4,15 +4,13 @@ import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
+import jnf.LinkOption.NOFOLLOW_LINKS
 import scala.collection.JavaConverters._
 
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
 
   implicit class FileOps(val f: File) extends AnyVal {
-    def mtime: Long      = f.lastModified / 1000L
-    def blockCount: Long = (f.length + blockSize - 1) / blockSize
-    def blockSize: Int   = 512 // FIXME
 
     def appending[A](g: FileOutputStream => A): A = {
       val stream = new FileOutputStream(f, true) // append = true
@@ -29,18 +27,44 @@ package object jio extends JioFiles {
   }
 
   implicit class PathOps(val p: Path) extends AnyVal {
+
     def /(name: String): Path = p resolve name
 
     def mkdir(attrs: AnyFileAttr*): Path = createDirectory(p, attrs: _*)
     def exists                           = p.toFile.exists
-    def isSymbolicLink()                 = Files isSymbolicLink p
-    def readSymbolicLink()               = Files readSymbolicLink p
-    def readAllBytes()                   = Files readAllBytes p
-    def list(): Vector[Path]             = Files list p toVector
+    def isFile                           = Files.isRegularFile(p, NOFOLLOW_LINKS)
+    def isDirectory                      = Files.isDirectory(p, NOFOLLOW_LINKS)
+    def isSymbolicLink                   = Files isSymbolicLink p
+    def readSymbolicLink                 = Files readSymbolicLink p
+    def allBytes                         = Files readAllBytes p
+    def list: Vector[Path]               = (Files list p).toVector
     def filename: String                 = p.getFileName.toString
+    def blockSize: Long                  = 512 // FIXME
+    def blockCount: Long                 = (attributes.size + blockSize - 1) / blockSize
+    def size: Long                       = attributes.size
+    def atime: Long                      = attributes.lastAccessTime.toMillis
+    def mtime: Long                      = attributes.lastModifiedTime.toMillis
 
     def openChannel(opts: OpenOption*): FileChannel = jnc.FileChannel.open(p, opts: _*)
+
+    def permissions: PosixFilePermissions = {
+      val pfp = (Files getPosixFilePermissions (p, NOFOLLOW_LINKS)).asScala
+      import jnfa.PosixFilePermission._
+      PosixFilePermissions(
+        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
+        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
+        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
+      )
+    }
+
+    def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
   }
+
+  case class PosixFilePermissions(
+    groupRead: Boolean, groupWrite: Boolean, groupExecute: Boolean,
+    ownerRead: Boolean, ownerWrite: Boolean, ownerExecute: Boolean,
+    otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
+  )
 
   def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
   def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
