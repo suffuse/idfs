@@ -57,6 +57,28 @@ package object jio extends JioFiles {
       )
     }
 
+    def setPermissions(bits: Long): Unit = {
+      import jnfa.PosixFilePermission._
+      val permissionBits = Set(
+        (1 << 8, OWNER_READ),
+        (1 << 7, OWNER_WRITE),
+        (1 << 6, OWNER_EXECUTE),
+        (1 << 5, GROUP_READ),
+        (1 << 4, GROUP_WRITE),
+        (1 << 3, GROUP_EXECUTE),
+        (1 << 2, OTHERS_READ),
+        (1 << 1, OTHERS_WRITE),
+        (1 << 0, OTHERS_EXECUTE)
+      )
+      val permissions =
+        permissionBits.foldLeft(Set.empty[PosixFilePermission]) {
+          case (result, (bit, permission)) =>
+            if ((bits & bit) == 0) result
+            else result + permission
+        }
+      Files.setPosixFilePermissions(p, permissions.asJava)
+    }
+
     def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
 
     def deleteRecursive(): Unit =

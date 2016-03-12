@@ -101,6 +101,12 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
       case _             => notImplemented()
     }
   }
+  override def chmod(path: String, mode: ModeWrapper): Int = {
+    resolvePath(path) match {
+      case p if p.exists => effect(eok)(p.setPermissions(mode.mode))
+      case _             => doesNotExist()
+    }
+  }
 
   private def getUID(): Long = getFuseContext.uid.longValue
   private def getGID(): Long = getFuseContext.gid.longValue
