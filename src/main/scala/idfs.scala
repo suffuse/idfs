@@ -71,7 +71,10 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   override def mkdir(path: String, mode: ModeWrapper): Int = {
     resolveFile(path) match {
       case f if f.exists => alreadyExists()
-      case f             => effect(eok)(f.mkdir())
+      case f             => effect(eok) {
+        f.mkdir()
+        populateMode(mode, f.toPath, NodeType.DIRECTORY)
+      }
     }
   }
   override def getattr(path: String, stat: StatWrapper): Int = {
