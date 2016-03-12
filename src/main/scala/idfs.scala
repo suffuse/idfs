@@ -89,6 +89,12 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   override def rename(from: String, to: String): Int = {
     tryFuse(resolveFile(from) renameTo resolveFile(to))
   }
+  override def rmdir(path: String): Int = {
+    resolvePath(path) match {
+      case d if d.isDirectory => effect(eok)(d.deleteRecursive())
+      case _                  => doesNotExist()
+    }
+  }
 
   private def getUID(): Long = getFuseContext.uid.longValue
   private def getGID(): Long = getFuseContext.gid.longValue

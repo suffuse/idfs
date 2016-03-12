@@ -58,6 +58,19 @@ package object jio extends JioFiles {
     }
 
     def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
+
+    def deleteRecursive(): Unit =
+      Files.walkFileTree(p, new jnf.SimpleFileVisitor[Path]() {
+        override def visitFile(file: Path, attrs: BasicFileAttributes) = {
+          Files.delete(file)
+          jnf.FileVisitResult.CONTINUE
+        }
+
+        override def postVisitDirectory(dir: Path, exc: IOException) = {
+          Files.delete(dir)
+          jnf.FileVisitResult.CONTINUE
+        }
+      })
   }
 
   case class PosixFilePermissions(
