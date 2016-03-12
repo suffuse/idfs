@@ -1,11 +1,13 @@
 import java.nio.file._
 import net.fusejna.ErrorCodes._
-import scala.util.{ Try, Success, Failure }
+import scala.util.{ Success, Failure }
+import scala.sys.process.{ Process, ProcessLogger }
 
 package object suffuse {
   type uV                = scala.annotation.unchecked.uncheckedVariance
   type FuseException     = net.fusejna.FuseException
   type StructFuseContext = net.fusejna.StructFuseContext
+  type Try[+A]           = scala.util.Try[A]
 
   def Try[A](body: => A): Try[A]        = scala.util.Try[A](body)
   def alreadyExists()                   = -EEXIST
@@ -14,6 +16,15 @@ package object suffuse {
   def isNotValid()                      = -EINVAL
   def eok()                             = 0
   def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
+
+  def exec(argv: String*): ExecResult = {
+    val cmd      = argv.toVector
+    var out, err = Vector[String]()
+    val logger   = ProcessLogger(out :+= _, err :+= _)
+    val exit     = Process(cmd, None) ! logger
+
+    ExecResult(cmd, exit, out, err)
+  }
 
   implicit class ThrowableOps(t: Throwable) {
     def toErrno: Int = t match {
