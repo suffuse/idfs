@@ -27,7 +27,7 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
 
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
     val p    = resolvePath(path)
-    val data = p.readAllBytes()
+    val data = p.allBytes
     effect(size.toInt)(
       if (offset + size > data.length)
         buf.put(data, offset.toInt, data.length - offset.toInt)
@@ -74,10 +74,12 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
     }
   }
   override def getattr(path: String, stat: StatWrapper): Int = {
-    resolveFile(path) match {
-      case f if f.isFile      => effect(eok)(populateStat(stat, f))
-      case d if d.isDirectory => effect(eok)(stat setMode NodeType.DIRECTORY)
-      case _                  => doesNotExist()
+    import NodeType._
+    resolvePath(path) match {
+      case f if f.isFile         => effect(eok)(populateStat(stat, f, FILE))
+      case d if d.isDirectory    => effect(eok)(populateStat(stat, d, DIRECTORY))
+      case l if l.isSymbolicLink => effect(eok)(populateStat(stat, l, SYMBOLIC_LINK))
+      case _                     => doesNotExist()
     }
   }
   override def rename(from: String, to: String): Int = {
@@ -92,14 +94,20 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
     case _   => new File(from.toFile, path stripSuffix "/")
   }
 
-  private def populateStat(stat: StatWrapper, f: File): Unit = {
-    stat setMode (NodeType.FILE, true, true, true, true, true, true, true, true, true)
-    stat size f.length
-    stat atime f.mtime
-    stat mtime f.mtime
+  private def populateStat(stat: StatWrapper, path: Path, nodeType: NodeType): Unit = {
+    val pp = path.permissions
+    import pp._
+    stat setMode (nodeType,
+      ownerRead, ownerWrite, ownerExecute,
+      groupRead, groupWrite, groupExecute,
+      otherRead, otherWrite, otherExecute
+    )
+    stat size   path.size
+    stat atime  path.atime
+    stat mtime  path.mtime
+    stat blocks path.blockCount
     stat nlink 1
     stat uid getUID
     stat gid getGID
-    stat blocks (f.length + 511L) / 512L
   }
 }
