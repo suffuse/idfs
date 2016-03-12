@@ -6,9 +6,20 @@ import StructFuseFileInfo.FileInfoWrapper
 import StructStat.StatWrapper
 import types.TypeMode.{ ModeWrapper, NodeType, IModeWrapper }
 import jio._
+import scala.util.Properties.isMac
 
 object idfs {
-  def apply(from: Path, to: Path): idfs = new idfs(from, to)
+  def apply(from: Path, to: Path): idfs = {
+    val fs = new idfs(from, to)
+    effect(fs) {
+      scala.sys addShutdownHook {
+        if (fs.isMounted) {
+          // System.err.println(s"Shutdown hook unmounting ${fs.mountPoint}")
+          fs.unmountTry()
+        }
+      }
+    }
+  }
 
   def main(args: Array[String]): Unit = args.toList match {
     case from :: to :: Nil => idfs(path(from), path(to)).logging().mount()
@@ -17,13 +28,20 @@ object idfs {
   }
 }
 
-class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
+class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   val mountPoint: File = to.toFile.getAbsoluteFile
+
+  override def getOptions() = Array("-o", "direct_io,default_permissions")
 
   def logging(): this.type = effect[this.type](this)(this log true)
   def mount(): Unit        = super.mount(mountPoint, false) // blocking=false
   def mountfg(): Unit      = super.mount(mountPoint, true) // blocking=true
-  def unmountTry(): Unit   = Try(unmount())
+  def unmountTry(): Unit   = (
+    if (isMac)
+      exec("umount", "-f", mountPoint.getPath) orElse exec("diskutil", "unmount", mountPoint.getPath)
+    else
+      exec("fusermount", "-u", mountPoint.getPath)
+  )
 
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
     val p    = resolvePath(path)
