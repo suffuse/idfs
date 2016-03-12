@@ -4,7 +4,7 @@ import net.fusejna._
 import StructFlock.FlockWrapper
 import StructFuseFileInfo.FileInfoWrapper
 import StructStat.StatWrapper
-import types.TypeMode.{ ModeWrapper, NodeType }
+import types.TypeMode.{ ModeWrapper, NodeType, IModeWrapper }
 import jio._
 
 object idfs {
@@ -63,8 +63,9 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   }
   override def create(path: String, mode: ModeWrapper, info: FileInfoWrapper): Int = {
     tryFuse {
-      resolveFile(path).createNewFile()
-      mode.setMode(NodeType.FILE, true, true, true)
+      val f = resolveFile(path)
+      f.createNewFile()
+      populateMode(mode, f.toPath, NodeType.FILE)
     }
   }
   override def mkdir(path: String, mode: ModeWrapper): Int = {
@@ -95,13 +96,7 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
   }
 
   private def populateStat(stat: StatWrapper, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    stat setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
+    populateMode(stat, path, nodeType)
     stat size   path.size
     stat atime  path.atime
     stat mtime  path.mtime
@@ -109,5 +104,15 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
     stat nlink 1
     stat uid getUID
     stat gid getGID
+  }
+
+  private def populateMode(mode: IModeWrapper, path: Path, nodeType: NodeType): Unit = {
+    val pp = path.permissions
+    import pp._
+    mode setMode (nodeType,
+      ownerRead, ownerWrite, ownerExecute,
+      groupRead, groupWrite, groupExecute,
+      otherRead, otherWrite, otherExecute
+    )
   }
 }
