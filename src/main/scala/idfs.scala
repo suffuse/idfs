@@ -81,18 +81,17 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
   override def create(path: String, mode: ModeWrapper, info: FileInfoWrapper): Int = {
     tryFuse {
-      val f = resolveFile(path)
-      f.createNewFile()
-      populateMode(mode, f.toPath, NodeType.FILE)
+      val p = resolvePath(path)
+      mode.`type`() match {
+        case NodeType.DIRECTORY => p.mkdir(mode.mode)
+        case NodeType.FILE      => p.mkfile(mode.mode)
+      }
     }
   }
   override def mkdir(path: String, mode: ModeWrapper): Int = {
-    resolveFile(path) match {
+    resolvePath(path) match {
       case f if f.exists => alreadyExists()
-      case f             => effect(eok) {
-        f.mkdir()
-        populateMode(mode, f.toPath, NodeType.DIRECTORY)
-      }
+      case f             => effect(eok)(f.mkdir(mode.mode))
     }
   }
   override def getattr(path: String, stat: StatWrapper): Int = {

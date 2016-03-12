@@ -5,6 +5,7 @@ import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
+import jnfa.PosixFilePermissions.asFileAttribute
 import scala.collection.JavaConverters._
 
 package object jio extends JioFiles {
@@ -30,7 +31,8 @@ package object jio extends JioFiles {
 
     def /(name: String): Path = p resolve name
 
-    def mkdir(attrs: AnyFileAttr*): Path = createDirectory(p, attrs: _*)
+    def mkdir(bits: Long): Path          = createDirectory(p, asFileAttribute(bitsAsPermissions(bits)))
+    def mkfile(bits: Long): Path         = createFile(p, asFileAttribute(bitsAsPermissions(bits)))
     def exists                           = p.toFile.exists
     def isFile                           = Files.isRegularFile(p, NOFOLLOW_LINKS)
     def isDirectory                      = Files.isDirectory(p, NOFOLLOW_LINKS)
@@ -57,27 +59,7 @@ package object jio extends JioFiles {
       )
     }
 
-    def setPermissions(bits: Long): Unit = {
-      import jnfa.PosixFilePermission._
-      val permissionBits = Set(
-        (1 << 8, OWNER_READ),
-        (1 << 7, OWNER_WRITE),
-        (1 << 6, OWNER_EXECUTE),
-        (1 << 5, GROUP_READ),
-        (1 << 4, GROUP_WRITE),
-        (1 << 3, GROUP_EXECUTE),
-        (1 << 2, OTHERS_READ),
-        (1 << 1, OTHERS_WRITE),
-        (1 << 0, OTHERS_EXECUTE)
-      )
-      val permissions =
-        permissionBits.foldLeft(Set.empty[PosixFilePermission]) {
-          case (result, (bit, permission)) =>
-            if ((bits & bit) == 0) result
-            else result + permission
-        }
-      Files.setPosixFilePermissions(p, permissions.asJava)
-    }
+    def setPermissions(bits: Long): Unit = Files.setPosixFilePermissions(p, bitsAsPermissions(bits))
 
     def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
 
@@ -104,6 +86,28 @@ package object jio extends JioFiles {
   def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
   def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
   def homeDir: Path                      = path(sys.props("user.home"))
+
+  def bitsAsPermissions(bits: Long): jFilePermissions = {
+    import jnfa.PosixFilePermission._
+    val permissionBits = Set(
+      (1 << 8, OWNER_READ),
+      (1 << 7, OWNER_WRITE),
+      (1 << 6, OWNER_EXECUTE),
+      (1 << 5, GROUP_READ),
+      (1 << 4, GROUP_WRITE),
+      (1 << 3, GROUP_EXECUTE),
+      (1 << 2, OTHERS_READ),
+      (1 << 1, OTHERS_WRITE),
+      (1 << 0, OTHERS_EXECUTE)
+    )
+    val permissions =
+      permissionBits.foldLeft(Set.empty[PosixFilePermission]) {
+        case (result, (bit, permission)) =>
+          if ((bits & bit) == 0) result
+          else result + permission
+      }
+    permissions.asJava
+  }
 
   type jArray[A]        = Array[A with Object]
   type jClass           = java.lang.Class[_]
