@@ -38,7 +38,9 @@ package object suffuse {
       case _: UnsupportedOperationException => ENOTSUP
       case _: SecurityException             => EPERM
       case _: jio.IOException               => EIO
-      case _                                => EIO
+      case _                                =>
+        println(t) // during this phase we want to know the uncaught exceptions
+        EIO
     }
   }
   implicit class TryOps[A](x: Try[A]) {

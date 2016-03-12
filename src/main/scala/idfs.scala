@@ -64,7 +64,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
 
   override def lock(path: String, info: FileInfoWrapper, command: FlockCommand, flock: FlockWrapper): Int = {
-    tryFuse(resolvePath(path).openChannel().tryLock())
+    tryFuse(resolvePath(path).tryLock())
   }
   override def readdir(path: String, filler: DirectoryFiller): Int = effect(eok) {
     resolveFile(path) match {
