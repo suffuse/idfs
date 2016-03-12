@@ -46,11 +46,9 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
     val p    = resolvePath(path)
     val data = p.allBytes
-    effect(size.toInt)(
-      if (offset + size > data.length)
-        buf.put(data, offset.toInt, data.length - offset.toInt)
-      else
-        buf.put(data, offset.toInt, size.toInt)
+    val totalBytes = if (offset + size > data.length) data.length - offset else size
+    effect(totalBytes.toInt)(
+      buf.put(data, offset.toInt, totalBytes.toInt)
     )
   }
   override def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
