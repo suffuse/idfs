@@ -47,7 +47,11 @@ package object jio extends JioFiles {
     def atime: Long                      = attributes.lastAccessTime.toMillis
     def mtime: Long                      = attributes.lastModifiedTime.toMillis
 
-    def tryLock():jnc.FileLock           = jnc.FileChannel.open(p, jnf.StandardOpenOption.WRITE).tryLock()
+    def tryLock():jnc.FileLock           = {
+      val channel = jnc.FileChannel.open(p, jnf.StandardOpenOption.WRITE)
+      try channel.tryLock()
+      finally channel.close()
+    }
 
     def permissions: PosixFilePermissions = {
       val pfp = (Files getPosixFilePermissions (p, NOFOLLOW_LINKS)).asScala
