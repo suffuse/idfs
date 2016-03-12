@@ -95,6 +95,12 @@ class idfs(from: Path, to: Path) extends util.FuseFilesystemAdapterFull {
       case _                  => doesNotExist()
     }
   }
+  override def unlink(path: String): Int = {
+    resolveFile(path) match {
+      case f if f.isFile => effect(eok)(f.delete())
+      case _             => notImplemented()
+    }
+  }
 
   private def getUID(): Long = getFuseContext.uid.longValue
   private def getGID(): Long = getFuseContext.gid.longValue

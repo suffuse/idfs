@@ -12,6 +12,7 @@ package object suffuse {
   def doesNotExist()                    = -ENOENT
   def effect[A](x: A)(effects: Any*): A = x
   def isNotValid()                      = -EINVAL
+  def notImplemented()                  = -ENOSYS
   def eok()                             = 0
   def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
 
