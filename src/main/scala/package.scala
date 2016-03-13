@@ -47,6 +47,7 @@ package object suffuse {
       case _: NoSuchFileException           => doesNotExist()
       case _: IllegalArgumentException      => isNotValid()
       case _: UnsupportedOperationException => notImplemented()
+      case _: DirectoryNotEmptyException    => -ENOTEMPTY
       case _: AccessDeniedException         => -EACCES
       case _: jio.IOException               => -EIO
       case _                                => -EIO
