@@ -127,6 +127,9 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
       resolvePath("/" + linkName) symLinkTo path(target)
     }
   }
+  override def link(from: String, to: String): Int = {
+    notSupported()
+  }
 
   private def getUID(): Long = getFuseContext.uid.longValue
   private def getGID(): Long = getFuseContext.gid.longValue
