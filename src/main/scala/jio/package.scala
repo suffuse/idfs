@@ -33,7 +33,7 @@ package object jio extends JioFiles {
 
     def mkdir(bits: Long): Path          = createDirectory(p, asFileAttribute(bitsAsPermissions(bits)))
     def mkfile(bits: Long): Path         = createFile(p, asFileAttribute(bitsAsPermissions(bits)))
-    def exists                           = p.toFile.exists
+    def exists                           = Files.exists(p, NOFOLLOW_LINKS)
     def isFile                           = Files.isRegularFile(p, NOFOLLOW_LINKS)
     def isDirectory                      = Files.isDirectory(p, NOFOLLOW_LINKS)
     def isSymbolicLink                   = Files isSymbolicLink p
@@ -67,18 +67,7 @@ package object jio extends JioFiles {
 
     def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
 
-    def deleteRecursive(): Unit =
-      Files.walkFileTree(p, new jnf.SimpleFileVisitor[Path]() {
-        override def visitFile(file: Path, attrs: BasicFileAttributes) = {
-          Files.delete(file)
-          jnf.FileVisitResult.CONTINUE
-        }
-
-        override def postVisitDirectory(dir: Path, exc: IOException) = {
-          Files.delete(dir)
-          jnf.FileVisitResult.CONTINUE
-        }
-      })
+    def delete(): Unit = Files.delete(p)
 
     def symLinkTo(target: Path): Unit = Files.createSymbolicLink(p, target)
   }

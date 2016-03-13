@@ -5,6 +5,7 @@ import StructFlock.FlockWrapper
 import StructFuseFileInfo.FileInfoWrapper
 import StructStat.StatWrapper
 import types.TypeMode.{ ModeWrapper, NodeType, IModeWrapper }
+import NodeType._
 import jio._
 import scala.util.Properties.isMac
 
@@ -78,12 +79,11 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     }
   }
   override def create(path: String, mode: ModeWrapper, info: FileInfoWrapper): Int = {
-    tryFuse {
-      val p = resolvePath(path)
-      mode.`type`() match {
-        case NodeType.DIRECTORY => p.mkdir(mode.mode)
-        case NodeType.FILE      => p.mkfile(mode.mode)
-      }
+    val p = resolvePath(path)
+    mode.`type`() match {
+      case DIRECTORY     => tryFuse(p mkdir mode.mode)
+      case FILE          => tryFuse(p mkfile mode.mode)
+      case FIFO | SOCKET => notSupported()
     }
   }
   override def mkdir(path: String, mode: ModeWrapper): Int = {
@@ -93,7 +93,6 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     }
   }
   override def getattr(path: String, stat: StatWrapper): Int = {
-    import NodeType._
     resolvePath(path) match {
       case f if f.isFile         => effect(eok)(populateStat(stat, f, FILE))
       case d if d.isDirectory    => effect(eok)(populateStat(stat, d, DIRECTORY))
@@ -104,16 +103,16 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   override def rename(from: String, to: String): Int = {
     tryFuse(resolveFile(from) renameTo resolveFile(to))
   }
-  override def rmdir(path: String): Int = {
+  override def rmdir(path: String): Int = tryFuse {
     resolvePath(path) match {
-      case d if d.isDirectory => effect(eok)(d.deleteRecursive())
+      case d if d.isDirectory => effect(eok)(d.delete())
       case _                  => doesNotExist()
     }
   }
   override def unlink(path: String): Int = {
-    resolveFile(path) match {
-      case f if f.isFile => effect(eok)(f.delete())
-      case _             => notImplemented()
+    resolvePath(path) match {
+      case f if f.exists => effect(eok)(f.delete())
+      case _             => doesNotExist()
     }
   }
   override def chmod(path: String, mode: ModeWrapper): Int = {
