@@ -129,6 +129,10 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   override def link(from: String, to: String): Int = {
     notSupported()
   }
+  override def truncate(path: String, size: Long): Int = tryFuse {
+    effect(eok)(resolvePath(path) truncate size)
+  }
+
 
   private def getUID(): Long = getFuseContext.uid.longValue
   private def getGID(): Long = getFuseContext.gid.longValue
