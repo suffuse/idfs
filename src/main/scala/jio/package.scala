@@ -1,14 +1,15 @@
 package suffuse
 
+import java.nio.ByteBuffer
 import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
-import scala.collection.JavaConverters._
 import java.util.concurrent.TimeUnit
-import java.nio.ByteBuffer
+import javax.naming.SizeLimitExceededException
+import scala.collection.JavaConverters._
 
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
@@ -53,7 +54,8 @@ package object jio extends JioFiles {
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
     def truncate(size: Long): Unit = withWriteChannel {
       case c if c.size > size => c truncate size
-      case c if c.size < size => c write (ByteBuffer wrap Array.fill((size - c.size).toInt)(0.toByte), c.size)
+      case c if c.size < size => c appendNullBytes (at = c.size, amount = (size - c.size).toInt)
+                                 if (c.size < size) throw new SizeLimitExceededException
       case _                  => // sizes are equal
     }
 
@@ -61,6 +63,13 @@ package object jio extends JioFiles {
       val channel = jnc.FileChannel.open(path, jnf.StandardOpenOption.WRITE)
       try code(channel)
       finally channel.close()
+    }
+  }
+
+  implicit class FileChannelOps(val c: FileChannel) extends AnyVal {
+    def appendNullBytes(at: Long, amount: Int): Unit = {
+      val nullBytes = Array.fill(amount)(0.toByte)
+      c write (ByteBuffer wrap nullBytes, at)
     }
   }
 
