@@ -4,7 +4,8 @@ import net.fusejna._
 import StructFlock.FlockWrapper
 import StructFuseFileInfo.FileInfoWrapper
 import StructStat.StatWrapper
-import types.TypeMode.{ ModeWrapper, NodeType }
+import types.TypeMode.{ ModeWrapper, NodeType, IModeWrapper }
+import NodeType._
 import jio._
 import scala.util.Properties.isMac
 
@@ -46,11 +47,9 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
     val p    = resolvePath(path)
     val data = p.allBytes
-    effect(size.toInt)(
-      if (offset + size > data.length)
-        buf.put(data, offset.toInt, data.length - offset.toInt)
-      else
-        buf.put(data, offset.toInt, size.toInt)
+    val totalBytes = if (offset + size > data.length) data.length - offset else size
+    effect(totalBytes.toInt)(
+      buf.put(data, offset.toInt, totalBytes.toInt)
     )
   }
   override def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfoWrapper): Int = {
@@ -64,7 +63,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
 
   override def lock(path: String, info: FileInfoWrapper, command: FlockCommand, flock: FlockWrapper): Int = {
-    tryFuse(resolvePath(path).openChannel().tryLock())
+    tryFuse(resolvePath(path).tryLock())
   }
   override def readdir(path: String, filler: DirectoryFiller): Int = effect(eok) {
     resolveFile(path) match {
@@ -80,19 +79,20 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     }
   }
   override def create(path: String, mode: ModeWrapper, info: FileInfoWrapper): Int = {
-    tryFuse {
-      resolveFile(path).createNewFile()
-      mode.setMode(NodeType.FILE, true, true, true)
+    val p = resolvePath(path)
+    mode.`type`() match {
+      case DIRECTORY     => tryFuse(p mkdir mode.mode)
+      case FILE          => tryFuse(p mkfile mode.mode)
+      case FIFO | SOCKET => notSupported()
     }
   }
   override def mkdir(path: String, mode: ModeWrapper): Int = {
-    resolveFile(path) match {
+    resolvePath(path) match {
       case f if f.exists => alreadyExists()
-      case f             => effect(eok)(f.mkdir())
+      case f             => effect(eok)(f.mkdir(mode.mode))
     }
   }
   override def getattr(path: String, stat: StatWrapper): Int = {
-    import NodeType._
     resolvePath(path) match {
       case f if f.isFile         => effect(eok)(populateStat(stat, f, FILE))
       case d if d.isDirectory    => effect(eok)(populateStat(stat, d, DIRECTORY))
@@ -102,6 +102,32 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
   override def rename(from: String, to: String): Int = {
     tryFuse(resolveFile(from) renameTo resolveFile(to))
+  }
+  override def rmdir(path: String): Int = tryFuse {
+    resolvePath(path) match {
+      case d if d.isDirectory => effect(eok)(d.delete())
+      case _                  => doesNotExist()
+    }
+  }
+  override def unlink(path: String): Int = {
+    resolvePath(path) match {
+      case f if f.exists => effect(eok)(f.delete())
+      case _             => doesNotExist()
+    }
+  }
+  override def chmod(path: String, mode: ModeWrapper): Int = {
+    resolvePath(path) match {
+      case p if p.exists => effect(eok)(p.setPermissions(mode.mode))
+      case _             => doesNotExist()
+    }
+  }
+  override def symlink(target: String, linkName: String): Int = {
+    tryFuse {
+      resolvePath("/" + linkName) symLinkTo path(target)
+    }
+  }
+  override def link(from: String, to: String): Int = {
+    notSupported()
   }
 
   private def getUID(): Long = getFuseContext.uid.longValue
@@ -113,13 +139,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
 
   private def populateStat(stat: StatWrapper, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    stat setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
+    populateMode(stat, path, nodeType)
     stat size   path.size
     stat atime  path.atime
     stat mtime  path.mtime
@@ -127,5 +147,15 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     stat nlink 1
     stat uid getUID
     stat gid getGID
+  }
+
+  private def populateMode(mode: IModeWrapper, path: Path, nodeType: NodeType): Unit = {
+    val pp = path.permissions
+    import pp._
+    mode setMode (nodeType,
+      ownerRead, ownerWrite, ownerExecute,
+      groupRead, groupWrite, groupExecute,
+      otherRead, otherWrite, otherExecute
+    )
   }
 }
