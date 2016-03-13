@@ -5,6 +5,7 @@ import StructFlock.FlockWrapper
 import StructFuseFileInfo.FileInfoWrapper
 import StructStat.StatWrapper
 import types.TypeMode.{ ModeWrapper, NodeType, IModeWrapper }
+import StructTimeBuffer.TimeBufferWrapper
 import NodeType._
 import jio._
 import scala.util.Properties.isMac
@@ -128,6 +129,12 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
   override def link(from: String, to: String): Int = {
     notSupported()
+  }
+  override def truncate(path: String, size: Long): Int = tryFuse {
+    effect(eok)(resolvePath(path) truncate size)
+  }
+  override def utimens(path: String, wrapper: TimeBufferWrapper) = {
+    tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
   }
 
   private def getUID(): Long = getFuseContext.uid.longValue

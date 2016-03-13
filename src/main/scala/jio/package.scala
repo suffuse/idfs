@@ -7,6 +7,7 @@ import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
 import scala.collection.JavaConverters._
+import java.util.concurrent.TimeUnit
 
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
@@ -47,11 +48,7 @@ package object jio extends JioFiles {
     def atime: Long                      = attributes.lastAccessTime.toMillis
     def mtime: Long                      = attributes.lastModifiedTime.toMillis
 
-    def tryLock():jnc.FileLock           = {
-      val channel = jnc.FileChannel.open(p, jnf.StandardOpenOption.WRITE)
-      try channel.tryLock()
-      finally channel.close()
-    }
+    def tryLock():jnc.FileLock           = withWriteChannel(_.tryLock)
 
     def permissions: PosixFilePermissions = {
       val pfp = (Files getPosixFilePermissions (p, NOFOLLOW_LINKS)).asScala
@@ -70,6 +67,17 @@ package object jio extends JioFiles {
     def delete(): Unit = Files.delete(p)
 
     def symLinkTo(target: Path): Unit = Files.createSymbolicLink(p, target)
+
+    def truncate(size: Long): Unit = withWriteChannel(_ truncate size )
+
+    def setLastModifiedTime(nanoSeconds: Long): Unit =
+      Files.setLastModifiedTime(p, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
+
+    private def withWriteChannel[A](code: jnc.FileChannel => A): A = {
+      val channel = jnc.FileChannel.open(p, jnf.StandardOpenOption.WRITE)
+      try code(channel)
+      finally channel.close()
+    }
   }
 
   case class PosixFilePermissions(
