@@ -28,19 +28,18 @@ package object suffuse {
   }
 
   implicit class ThrowableOps(t: Throwable) {
+    println(t)
     def toErrno: Int = t match {
       case _: NotDirectoryException         => ENOTDIR
       case _: DirectoryNotEmptyException    => ENOTEMPTY
-      case _: FileAlreadyExistsException    => EEXIST
-      case _: NoSuchFileException           => ENOENT
+      case _: FileAlreadyExistsException    => -EEXIST
+      case _: NoSuchFileException           => -ENOENT
       case _: NotLinkException              => EPERM
       case _: IllegalArgumentException      => EINVAL
       case _: UnsupportedOperationException => ENOTSUP
       case _: SecurityException             => EPERM
       case _: jio.IOException               => EIO
-      case _                                =>
-        println(t) // during this phase we want to know the uncaught exceptions
-        EIO
+      case _                                => EIO
     }
   }
   implicit class TryOps[A](x: Try[A]) {
