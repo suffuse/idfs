@@ -79,6 +79,8 @@ package object jio extends JioFiles {
           jnf.FileVisitResult.CONTINUE
         }
       })
+
+    def symLinkTo(target: Path): Unit = Files.createSymbolicLink(p, target)
   }
 
   case class PosixFilePermissions(
