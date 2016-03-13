@@ -102,7 +102,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     }
   }
   override def rename(from: String, to: String): Int = {
-    tryFuse(resolveFile(from) renameTo resolveFile(to))
+    tryFuse(resolvePath(from) moveTo resolvePath(to))
   }
   override def rmdir(path: String): Int = tryFuse {
     resolvePath(path) match {

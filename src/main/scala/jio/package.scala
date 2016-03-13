@@ -90,6 +90,7 @@ package object jio extends JioFiles {
     def readlink: Rep                   = asRep(Files readSymbolicLink path)
     def size: Long                      = attributes.size
     def to_s: String                    = path.toString
+    def moveTo(target: Path)            = Files.move(path, target)
   }
 
   case class PosixFilePermissions(
