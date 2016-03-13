@@ -12,8 +12,8 @@ final class IdfsTests {
     val fs  = idfs(homeDir, mnt)
 
     fs.mount()
-    val s1 = mnt.list.map(_.filename).sorted.mkString(" ")
-    val s2 = homeDir.list.map(_.filename).sorted.mkString(" ")
+    val s1 = mnt.ls.map(_.filename).sorted.mkString(" ")
+    val s2 = homeDir.ls.map(_.filename).sorted.mkString(" ")
     assertEquals(s1, s2)
     fs.unmountTry() // Fails usually otherwise
   }

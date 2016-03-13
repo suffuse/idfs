@@ -76,7 +76,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
     resolvePath(path) match {
       case p if !p.exists         => doesNotExist()
       case p if !p.isSymbolicLink => isNotValid()
-      case p                      => effect(eok)(buf put (p.readSymbolicLink.toString getBytes jio.UTF8))
+      case p                      => effect(eok)(buf put (p.readlink.to_s getBytes jio.UTF8))
     }
   }
   override def create(path: String, mode: ModeWrapper, info: FileInfoWrapper): Int = {
@@ -124,7 +124,7 @@ class idfs private (from: Path, to: Path) extends util.FuseFilesystemAdapterFull
   }
   override def symlink(target: String, linkName: String): Int = {
     tryFuse {
-      resolvePath("/" + linkName) symLinkTo path(target)
+      resolvePath("/" + linkName) mklink path(target)
     }
   }
   override def link(from: String, to: String): Int = {
