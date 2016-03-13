@@ -19,6 +19,18 @@ package object suffuse {
   def eok()                             = 0
   def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
 
+  // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
+  //
+  // 675   octet-stream
+  // 96    x-shellscript
+  // 89    x-perl
+  // 26    x-c
+  // ...
+  def statsBy[A, B](xs: Seq[A])(f: A => B): Unit = {
+    val counts = xs groupBy f mapValues (_.size)
+    counts.toVector sortBy (-_._2) map { case (k, n) => "%-5s %s".format(n, k) } foreach println
+  }
+
   def exec(argv: String*): ExecResult = {
     val cmd      = argv.toVector
     var out, err = Vector[String]()

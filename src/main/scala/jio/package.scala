@@ -12,13 +12,6 @@ import java.util.concurrent.TimeUnit
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
 
-  implicit class FileOps(val f: File) extends AnyVal {
-
-    def appending[A](g: FileOutputStream => A): A = {
-      val stream = new FileOutputStream(f, true) // append = true
-      try g(stream) finally stream.close()
-    }
-  }
 
   implicit class StreamOps[A](val xs: jStream[A]) extends AnyVal {
     def toVector: Vector[A] = {
@@ -28,30 +21,20 @@ package object jio extends JioFiles {
     }
   }
 
-  implicit class PathOps(val p: Path) extends AnyVal {
+  implicit class FileOps(val f: File) extends Pathish[File] {
+    def path: Path     = f.toPath
+    def asRep(p: Path) = p.toFile
 
-    def /(name: String): Path = p resolve name
-
-    def mkdir(bits: Long): Path          = createDirectory(p, asFileAttribute(bitsAsPermissions(bits)))
-    def mkfile(bits: Long): Path         = createFile(p, asFileAttribute(bitsAsPermissions(bits)))
-    def exists                           = Files.exists(p, NOFOLLOW_LINKS)
-    def isFile                           = Files.isRegularFile(p, NOFOLLOW_LINKS)
-    def isDirectory                      = Files.isDirectory(p, NOFOLLOW_LINKS)
-    def isSymbolicLink                   = Files isSymbolicLink p
-    def readSymbolicLink                 = Files readSymbolicLink p
-    def allBytes                         = Files readAllBytes p
-    def list: Vector[Path]               = (Files list p).toVector
-    def filename: String                 = p.getFileName.toString
-    def blockSize: Long                  = 512 // FIXME
-    def blockCount: Long                 = (attributes.size + blockSize - 1) / blockSize
-    def size: Long                       = attributes.size
-    def atime: Long                      = attributes.lastAccessTime.toMillis
-    def mtime: Long                      = attributes.lastModifiedTime.toMillis
-
-    def tryLock():jnc.FileLock           = withWriteChannel(_.tryLock)
+    def appending[A](g: FileOutputStream => A): A = {
+      val stream = new FileOutputStream(f, true) // append = true
+      try g(stream) finally stream.close()
+    }
+  }
+  implicit class PathOps(val path: Path) extends Pathish[Path] {
+    def asRep(p: Path) = p
 
     def permissions: PosixFilePermissions = {
-      val pfp = (Files getPosixFilePermissions (p, NOFOLLOW_LINKS)).asScala
+      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
       import jnfa.PosixFilePermission._
       PosixFilePermissions(
         pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
@@ -60,24 +43,53 @@ package object jio extends JioFiles {
       )
     }
 
-    def setPermissions(bits: Long): Unit = Files.setPosixFilePermissions(p, bitsAsPermissions(bits))
-
-    def attributes: BasicFileAttributes = Files readAttributes(p, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
-
-    def delete(): Unit = Files.delete(p)
-
-    def symLinkTo(target: Path): Unit = Files.createSymbolicLink(p, target)
-
-    def truncate(size: Long): Unit = withWriteChannel(_ truncate size )
+    def setPermissions(bits: Long): Unit =
+      Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
 
     def setLastModifiedTime(nanoSeconds: Long): Unit =
-      Files.setLastModifiedTime(p, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
+      Files.setLastModifiedTime(path, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
+
+    def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
+    def truncate(size: Long): Unit = withWriteChannel(_ truncate size )
 
     private def withWriteChannel[A](code: jnc.FileChannel => A): A = {
-      val channel = jnc.FileChannel.open(p, jnf.StandardOpenOption.WRITE)
+      val channel = jnc.FileChannel.open(path, jnf.StandardOpenOption.WRITE)
       try code(channel)
       finally channel.close()
     }
+  }
+
+  trait Pathish[Rep] {
+    def path: Path
+    def asRep(p: Path): Rep
+
+    def /(name: String): Rep      = asRep(path resolve name)
+    def mkdir(bits: Long): Rep    = asRep(createDirectory(path, asFileAttribute(bitsAsPermissions(bits))))
+    def mkfile(bits: Long): Rep   = asRep(createFile(path, asFileAttribute(bitsAsPermissions(bits))))
+    def mklink(target: Path): Rep = asRep(createSymbolicLink(path, target))
+
+    /** Some consistent naming scheme for various operations would be a boon.
+     *    isdir isfile islink?
+     *    readdir readfile readlink?
+     */
+
+    def allBytes: Array[Byte]           = Files readAllBytes path
+    def atime: Long                     = attributes.lastAccessTime.toMillis
+    def attributes: BasicFileAttributes = Files readAttributes(path, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
+    def blockCount: Long                = (attributes.size + blockSize - 1) / blockSize
+    def blockSize: Long                 = 512 // FIXME
+    def delete(): Unit                  = Files delete path
+    def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
+    def filename: String                = path.getFileName.to_s
+    def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
+    def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
+    def isSymbolicLink: Boolean         = Files isSymbolicLink path
+    def ls: Vector[Rep]                 = (Files list path).toVector map asRep
+    def mediaType: MediaType            = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
+    def mtime: Long                     = attributes.lastModifiedTime.toMillis
+    def readlink: Rep                   = asRep(Files readSymbolicLink path)
+    def size: Long                      = attributes.size
+    def to_s: String                    = path.toString
   }
 
   case class PosixFilePermissions(
