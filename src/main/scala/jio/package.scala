@@ -9,11 +9,12 @@ import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
 import java.util.concurrent.TimeUnit
 import javax.naming.SizeLimitExceededException
-import scala.collection.JavaConverters._
+import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 
-package object jio extends JioFiles {
+package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
 
+  def jList[A](xs: A*): jList[A] = doto(new java.util.ArrayList[A])(xs foreach _.add)
 
   implicit class StreamOps[A](val xs: jStream[A]) extends AnyVal {
     def toVector: Vector[A] = {
