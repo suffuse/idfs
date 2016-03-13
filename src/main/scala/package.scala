@@ -15,6 +15,7 @@ package object suffuse {
   def effect[A](x: A)(effects: Any*): A = x
   def isNotValid()                      = -EINVAL
   def notImplemented()                  = -ENOSYS
+  def notSupported()                    = notImplemented()
   def eok()                             = 0
   def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
 
@@ -32,11 +33,11 @@ package object suffuse {
     def toErrno: Int = t match {
       case _: NotDirectoryException         => ENOTDIR
       case _: DirectoryNotEmptyException    => ENOTEMPTY
-      case _: FileAlreadyExistsException    => -EEXIST
-      case _: NoSuchFileException           => -ENOENT
+      case _: FileAlreadyExistsException    => alreadyExists()
+      case _: NoSuchFileException           => doesNotExist()
       case _: NotLinkException              => EPERM
-      case _: IllegalArgumentException      => EINVAL
-      case _: UnsupportedOperationException => ENOTSUP
+      case _: IllegalArgumentException      => isNotValid()
+      case _: UnsupportedOperationException => notImplemented()
       case _: SecurityException             => EPERM
       case _: jio.IOException               => EIO
       case _                                => EIO
