@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#
+
+sbt "runMain suffuse.fs.filterfs $*"
