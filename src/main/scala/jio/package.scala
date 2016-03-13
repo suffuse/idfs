@@ -8,6 +8,7 @@ import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
 import scala.collection.JavaConverters._
 import java.util.concurrent.TimeUnit
+import java.nio.ByteBuffer
 
 package object jio extends JioFiles {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
@@ -50,7 +51,11 @@ package object jio extends JioFiles {
       Files.setLastModifiedTime(path, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
 
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
-    def truncate(size: Long): Unit = withWriteChannel(_ truncate size )
+    def truncate(size: Long): Unit = withWriteChannel {
+      case c if c.size > size => c truncate size
+      case c if c.size < size => c write (ByteBuffer wrap Array.fill((size - c.size).toInt)(0.toByte), c.size)
+      case _                  => // sizes are equal
+    }
 
     private def withWriteChannel[A](code: jnc.FileChannel => A): A = {
       val channel = jnc.FileChannel.open(path, jnf.StandardOpenOption.WRITE)
