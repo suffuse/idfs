@@ -4,20 +4,23 @@ import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
 
 package object suffuse {
-  type uV                = scala.annotation.unchecked.uncheckedVariance
-  type FuseException     = net.fusejna.FuseException
-  type StructFuseContext = net.fusejna.StructFuseContext
-  type Try[+A]           = scala.util.Try[A]
+  type Buf     = java.nio.ByteBuffer
+  type Try[+A] = scala.util.Try[A]
+  type uV      = scala.annotation.unchecked.uncheckedVariance
 
   def Try[A](body: => A): Try[A]        = scala.util.Try[A](body)
-  def alreadyExists()                   = -EEXIST
-  def doesNotExist()                    = -ENOENT
-  def effect[A](x: A)(effects: Any*): A = x
-  def isNotValid()                      = -EINVAL
-  def notImplemented()                  = -ENOSYS
-  def notSupported()                    = notImplemented()
-  def eok()                             = 0
   def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
+  def andTrue(x: Unit): Boolean         = true
+  def doto[A](x: A)(f: A => Unit): A    = { f(x) ; x }
+  def effect[A](x: A)(effects: Any*): A = x
+
+  def alreadyExists()  = -EEXIST
+  def doesNotExist()   = -ENOENT
+  def eok()            = 0
+  def isMac            = scala.util.Properties.isMac
+  def isNotValid()     = -EINVAL
+  def notImplemented() = -ENOSYS
+  def notSupported()   = notImplemented()
 
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //
