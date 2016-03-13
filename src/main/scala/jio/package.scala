@@ -47,6 +47,7 @@ package object jio extends JioFiles {
     def size: Long                       = attributes.size
     def atime: Long                      = attributes.lastAccessTime.toMillis
     def mtime: Long                      = attributes.lastModifiedTime.toMillis
+    def mediaType: MediaType             = MediaType(exec("file", "--brief", "--mime", "--dereference", p.toString).stdout mkString "\n")
 
     def tryLock():jnc.FileLock           = withWriteChannel(_.tryLock)
 
