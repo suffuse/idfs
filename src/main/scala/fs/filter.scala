@@ -11,8 +11,8 @@ class FilteredFs(protected val underlying: FuseFilesystem, cond: String => Boole
 }
 
 class FilteredDirFiller(filler: DirectoryFiller, condition: String => Boolean) extends DirectoryFiller {
-  def add(files: jIterable[String]): Boolean = filler add (files.asScala filter condition asJava)
-  def add(files: String*): Boolean           = filler add (files filter condition asJava)
+  def add(files: jIterable[String]): Boolean = filler add (files.asScala filter condition).asJava
+  def add(files: String*): Boolean           = filler add (files filter condition).asJava
 }
 
 object filterfs {

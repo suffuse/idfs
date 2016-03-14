@@ -71,7 +71,7 @@ class idfs private (from: Path) extends FuseFsFull {
     }
   }
   override def rename(from: String, to: String): Int = {
-    tryFuse(resolveFile(from) renameTo resolveFile(to))
+    tryFuse(resolvePath(from) moveTo resolvePath(to))
   }
   override def rmdir(path: String): Int = tryFuse {
     resolvePath(path) match {

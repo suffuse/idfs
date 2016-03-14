@@ -1,13 +1,15 @@
 package suffuse
 
+import java.nio.ByteBuffer
 import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
-import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 import java.util.concurrent.TimeUnit
+import javax.naming.SizeLimitExceededException
+import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 
 package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"
@@ -51,12 +53,24 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
       Files.setLastModifiedTime(path, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
 
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
-    def truncate(size: Long): Unit = withWriteChannel(_ truncate size )
+    def truncate(size: Long): Unit = withWriteChannel {
+      case c if c.size > size => c truncate size
+      case c if c.size < size => c appendNullBytes (at = c.size, amount = (size - c.size).toInt)
+                                 if (c.size < size) throw new SizeLimitExceededException
+      case _                  => // sizes are equal
+    }
 
     private def withWriteChannel[A](code: jnc.FileChannel => A): A = {
       val channel = jnc.FileChannel.open(path, jnf.StandardOpenOption.WRITE)
       try code(channel)
       finally channel.close()
+    }
+  }
+
+  implicit class FileChannelOps(val c: FileChannel) extends AnyVal {
+    def appendNullBytes(at: Long, amount: Int): Unit = {
+      val nullBytes = Array.fill(amount)(0.toByte)
+      c write (ByteBuffer wrap nullBytes, at)
     }
   }
 
@@ -91,6 +105,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def readlink: Rep                   = asRep(Files readSymbolicLink path)
     def size: Long                      = attributes.size
     def to_s: String                    = path.toString
+    def moveTo(target: Path)            = Files.move(path, target)
   }
 
   case class PosixFilePermissions(

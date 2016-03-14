@@ -37,7 +37,7 @@ object MediaType {
     case n if n >= 0 => (s take n, s drop n + 1)
     case _           => (s, "")
   }
-  private def mkMap(attrs: String) = attrs split ";" map mkPair toMap
+  private def mkMap(attrs: String) = (attrs split ";" map mkPair).toMap
 
   def apply(str: String): MediaType = str match {
     case Extract(tpe, subtpe, attrs) => new MediaType(tpe, subtpe, mkMap(attrs))

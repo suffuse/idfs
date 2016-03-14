@@ -1,4 +1,5 @@
 import java.nio.file._
+import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
@@ -50,6 +51,8 @@ package object suffuse {
       case _: NoSuchFileException           => doesNotExist()
       case _: IllegalArgumentException      => isNotValid()
       case _: UnsupportedOperationException => notImplemented()
+      case _: DirectoryNotEmptyException    => -ENOTEMPTY
+      case _: SizeLimitExceededException    => -EFBIG
       case _: AccessDeniedException         => -EACCES
       case _: jio.IOException               => -EIO
       case _                                => -EIO
