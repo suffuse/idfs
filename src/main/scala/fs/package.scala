@@ -25,8 +25,20 @@ package object fs {
   // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
   def defaultOptions = Array("-o", "direct_io,default_permissions")
 
-  implicit class FuseFilesystemOps(val fs: FuseFilesystem) {
+  implicit class FuseFilesystemOps(val fs: FuseFilesystem) extends AnyVal {
     def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)
     def filterNot(p: String => Boolean): FuseFs = new FilteredFs(fs, x => !p(x))
+  }
+
+  implicit class MetadataOps(val m: jio.Metadata) extends AnyVal {
+    import Node._
+    // This is not optimal, but follows existing code
+    def nodeType: NodeType =
+           if (m.isFile        ) File
+      else if (m.isDirectory   ) Dir
+      else if (m.isSymbolicLink) Link
+      else `At some point in time I would love another approach`
+
+    private def `At some point in time I would love another approach` = sys error "Unknown node type"
   }
 }

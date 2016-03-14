@@ -64,10 +64,8 @@ class idfs private (from: Path) extends FuseFsFull {
   }
   override def getattr(path: String, stat: StatInfo): Int = {
     resolvePath(path) match {
-      case f if f.isFile         => effect(eok)(populateStat(stat, f, Node.File))
-      case d if d.isDirectory    => effect(eok)(populateStat(stat, d, Node.Dir))
-      case l if l.isSymbolicLink => effect(eok)(populateStat(stat, l, Node.Link))
-      case _                     => doesNotExist()
+      case x if x.isKnownType => effect(eok)(populateStat(stat, x))
+      case _                  => doesNotExist()
     }
   }
   override def rename(from: String, to: String): Int = {

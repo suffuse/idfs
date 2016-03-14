@@ -64,7 +64,18 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     }
   }
 
-  trait Pathish[Rep] {
+  trait Metadata {
+    def permissions: PosixFilePermissions
+    def atime: Long
+    def mtime: Long
+    def blockCount: Long
+    def size: Long
+    def isDirectory: Boolean
+    def isFile: Boolean
+    def isSymbolicLink: Boolean
+  }
+
+  trait Pathish[Rep] extends Metadata {
     def path: Path
     def asRep(p: Path): Rep
 
@@ -86,6 +97,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def delete(): Unit                  = Files delete path
     def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
     def filename: String                = path.getFileName.to_s
+    def isKnownType: Boolean            = isDirectory || isFile || isSymbolicLink
     def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
     def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
     def isSymbolicLink: Boolean         = Files isSymbolicLink path

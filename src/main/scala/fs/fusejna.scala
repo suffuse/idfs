@@ -53,21 +53,21 @@ trait FuseFs extends FuseFilesystem {
   protected def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
   protected def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
 
-  protected def populateStat(stat: StatInfo, path: Pathish[_], nodeType: NodeType): Unit = {
-    populateMode(stat, path, nodeType)
-    stat size   path.size
-    stat atime  path.atime
-    stat mtime  path.mtime
-    stat blocks path.blockCount
+  protected def populateStat(stat: StatInfo, metadata: Metadata): Unit = {
+    populateMode(stat, metadata)
+    stat size   metadata.size
+    stat atime  metadata.atime
+    stat mtime  metadata.mtime
+    stat blocks metadata.blockCount
     stat nlink 1
     stat uid getUID
     stat gid getGID
   }
 
-  protected def populateMode(mode: IModeInfo, path: Pathish[_], nodeType: NodeType): Unit = {
-    val pp = path.permissions
+  protected def populateMode(mode: IModeInfo, metadata: Metadata): Unit = {
+    val pp = metadata.permissions
     import pp._
-    mode setMode (nodeType,
+    mode setMode (metadata.nodeType,
       ownerRead, ownerWrite, ownerExecute,
       groupRead, groupWrite, groupExecute,
       otherRead, otherWrite, otherExecute
