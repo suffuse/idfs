@@ -36,16 +36,6 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p
 
-    def permissions: PosixFilePermissions = {
-      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
-      import jnfa.PosixFilePermission._
-      PosixFilePermissions(
-        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
-        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
-        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
-      )
-    }
-
     def setPermissions(bits: Long): Unit =
       Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
 
@@ -106,6 +96,16 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def size: Long                      = attributes.size
     def to_s: String                    = path.toString
     def moveTo(target: Path)            = Files.move(path, target)
+
+    def permissions: PosixFilePermissions = {
+      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
+      import jnfa.PosixFilePermission._
+      PosixFilePermissions(
+        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
+        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
+        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
+      )
+    }
   }
 
   case class PosixFilePermissions(

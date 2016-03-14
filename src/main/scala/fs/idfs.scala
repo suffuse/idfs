@@ -106,32 +106,9 @@ class idfs private (from: Path) extends FuseFsFull {
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
   }
 
-  private def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
-  private def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
   private def resolvePath(p: String): Path = path(s"$from$p")
   private def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")
-  }
-
-  private def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
-    populateMode(stat, path, nodeType)
-    stat size   path.size
-    stat atime  path.atime
-    stat mtime  path.mtime
-    stat blocks path.blockCount
-    stat nlink 1
-    stat uid getUID
-    stat gid getGID
-  }
-
-  private def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    mode setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
   }
 }

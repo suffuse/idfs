@@ -49,6 +49,30 @@ trait FuseFs extends FuseFilesystem {
 
   def fuseContext(): FuseContext  = super.getFuseContext
   def getOptions(): Array[String] = fs.defaultOptions
+
+  protected def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
+  protected def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
+
+  protected def populateStat(stat: StatInfo, path: Pathish[_], nodeType: NodeType): Unit = {
+    populateMode(stat, path, nodeType)
+    stat size   path.size
+    stat atime  path.atime
+    stat mtime  path.mtime
+    stat blocks path.blockCount
+    stat nlink 1
+    stat uid getUID
+    stat gid getGID
+  }
+
+  protected def populateMode(mode: IModeInfo, path: Pathish[_], nodeType: NodeType): Unit = {
+    val pp = path.permissions
+    import pp._
+    mode setMode (nodeType,
+      ownerRead, ownerWrite, ownerExecute,
+      groupRead, groupWrite, groupExecute,
+      otherRead, otherWrite, otherExecute
+    )
+  }
 }
 
 /** This makes it easy to modify or extends the behavior of an existing
