@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#
+
+sqlite3 files.db "SELECT path FROM inodes JOIN paths ON inodes.inum = paths.inum AND inodes.parent = $(inum "$1");"

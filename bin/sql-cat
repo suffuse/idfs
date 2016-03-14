@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#
+
+sqlite3 files.db "SELECT bytes FROM data where inum = $(inum "$1")"

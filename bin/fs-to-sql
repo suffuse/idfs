@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+
+cat <<EOM
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE inodes (
+  inum integer PRIMARY KEY,
+  parent integer,
+  name text NOT NULL,
+  uid integer,
+  gid integer,
+  mode integer,
+  mtime integer
+);
+CREATE TABLE paths (
+  path text NOT NULL,
+  inum integer REFERENCES inodes(inum),
+  PRIMARY KEY (path, inum)
+);
+CREATE TABLE links (
+  inum integer REFERENCES inodes(inum),
+  target text NOT NULL
+);
+CREATE TABLE data (
+  inum integer REFERENCES inodes(inum),
+  bytes blob
+);
+BEGIN;
+EOM
+
+ROOT="$( cd "$1" && pwd -P )"
+ROOT_INUM="$( stat -f %i "$ROOT" )"
+cd "$ROOT"
+
+while read path; do
+  [[ $path == "." ]] && continue
+  [[ $path == ".." ]] && continue
+  [[ -r "$path" ]] || continue
+  [[ $path == ./* ]] && path="${path:2:${#path}}"
+
+  read inum uid gid perms mtime < <( stat -f "%i %u %g %p %m" "$path" )
+
+  name="$(basename "$path")"
+
+  if [[ $ROOT_INUM -eq $inum ]]; then
+    parent="-1"
+  else
+    parent="$( stat -f "%i" "$(dirname "$path")" )"
+  fi
+
+  # Hard links lead to multiple paths with the same inode, thus "or ignore"
+  echo "INSERT OR IGNORE INTO inodes VALUES( $inum, $parent, '$name', $uid, $gid, $perms, $mtime );"
+  echo "INSERT INTO paths VALUES( '$path', $inum );"
+
+  if [[ -h "$path" ]]; then
+    target="$( readlink "$path" )"
+    echo "INSERT INTO links VALUES( $inum, '$target' );"
+  elif [[ -f "$path" ]]; then
+    bytes="$( xxd -p "$path" | tr -d '\r\n\t ')"
+    echo "INSERT INTO data VALUES( $inum, X'$bytes' );"
+  fi
+
+done < <( find . )
+
+echo "COMMIT;"
+echo ""
+
+# amc     Display date in strftime(3) format.
+# dr      Display actual device name.
+# gu      Display group or user name.
+# p       Display the mode of file as in ls -lTd.
+# N       Displays the name of file.
+# T       Displays the type of file.
+# d       Device upon which file resides.
+# i       file's inode number.
+# p       File type and permissions.
+# l       Number of hard links to file.
+# u,g     User ID and group ID of file's owner.
+# r       Device number for character and block device special files.
+# a,m,c,B The time file was last accessed or modified, of when the inode was last changed, or the birth time of the inode.
+# z       The size of file in bytes.
+# b       Number of blocks allocated for file.
+# k       Optimal file system I/O operation block size.
+# f       User defined flags for file.
+# v       Inode generation number.
+#
+# *** Not from struct stat ***
+# N       The name of the file.
+# T       The file type, either as in ls -F or in a more descriptive form if the sub field specifier H is given.
+# Y       The target of a symbolic link.
+# Z       Expands to ``major,minor'' from the rdev field for character or block special devices and gives size output for all others.
