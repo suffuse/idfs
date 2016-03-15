@@ -11,7 +11,7 @@ class MappedFs(
 ) extends ForwarderFs {
 
   override def readdir(path: String, df: DirectoryFiller): Int =
-    underlying.readdir(path, new MappedDirFiller(df, resolvePath andThen map andThen (_.name)))
+    underlying.readdir(path, new MappedDirFiller(df, resolvePath andThen map andThen (_.fileName)))
 
   override def getattr(path: String, stat: StatInfo): Int = {
     val metadata = map(resolvePath(path))
@@ -58,7 +58,7 @@ object mapfs {
     exec(command, path.to_s).stdout
 
   private def replaceExtension(path: Path, fromExt: String, toExt: String): Path =
-    path resolveSibling (path.name.replaceLast(fromExt, toExt))
+    path resolveSibling (path.fileName.replaceLast(fromExt, toExt))
 
   private implicit class StringOps(val s: String) extends AnyVal {
     def replaceLast(find: String, replace: String) =

@@ -74,7 +74,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def atime: Long
     def mtime: Long
 
-    def name : String    = path.getFileName.to_s
+    def fileName : String    = path.getFileName.to_s
     def blockCount: Long = (size + blockSize - 1) / blockSize
     def blockSize: Long  = 512 // FIXME
   }

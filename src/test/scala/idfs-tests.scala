@@ -10,8 +10,8 @@ final class IdfsTests {
   @Test
   def mountHomeDir(): Unit = {
     val fs  = idfs(homeDir) mount mnt
-    val s1 = mnt.ls.map(_.name).sorted.mkString(" ")
-    val s2 = homeDir.ls.map(_.name).sorted.mkString(" ")
+    val s1 = mnt.ls.map(_.fileName).sorted.mkString(" ")
+    val s2 = homeDir.ls.map(_.fileName).sorted.mkString(" ")
     assertEquals(s1, s2)
     fs.unmountTry() // Fails usually otherwise
   }
