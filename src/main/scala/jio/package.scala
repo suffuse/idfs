@@ -36,16 +36,6 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p
 
-    def permissions: PosixFilePermissions = {
-      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
-      import jnfa.PosixFilePermission._
-      PosixFilePermissions(
-        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
-        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
-        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
-      )
-    }
-
     def setPermissions(bits: Long): Unit =
       Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
 
@@ -74,7 +64,36 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     }
   }
 
-  trait Pathish[Rep] {
+  trait Metadataish {
+    def allBytes: Array[Byte]
+    def nodeType: fs.NodeType
+    def size: Long
+    def permissions: PosixFilePermissions
+    def atime: Long
+    def mtime: Long
+    def fileName : String
+
+    def extension: String = {
+      val i = fileName.lastIndexOf(".")
+      if (i < 0) ""
+      else fileName.substring(i + 1)
+    }
+
+    def blockCount: Long = (size + blockSize - 1) / blockSize
+    def blockSize: Long  = 512 // FIXME
+  }
+
+  case class NonPhysicalFile(
+    nodeType: fs.NodeType, fileName: String, allBytes: Array[Byte],
+    permissions: PosixFilePermissions,
+    atime: Long, mtime: Long
+  ) extends Metadataish {
+    def size = allBytes.size
+  }
+
+  val NoMetadata: Metadataish = NonPhysicalFile(null, null, null, null, 0, 0)
+
+  trait Pathish[Rep] extends Metadataish {
     def path: Path
     def asRep(p: Path): Rep
 
@@ -88,24 +107,46 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
      *    readdir readfile readlink?
      */
 
+    def fileName: String                = path.getFileName.to_s
     def allBytes: Array[Byte]           = Files readAllBytes path
     def atime: Long                     = attributes.lastAccessTime.toMillis
     def attributes: BasicFileAttributes = Files readAttributes(path, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
-    def blockCount: Long                = (attributes.size + blockSize - 1) / blockSize
-    def blockSize: Long                 = 512 // FIXME
     def delete(): Unit                  = Files delete path
     def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
-    def filename: String                = path.getFileName.to_s
+    def isKnownType: Boolean            = isDirectory || isFile || isSymbolicLink
     def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
     def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
     def isSymbolicLink: Boolean         = Files isSymbolicLink path
     def ls: Vector[Rep]                 = (Files list path).toVector map asRep
-    def mediaType: MediaType            = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
+    def mediaType: MediaType            = MediaType(new String(exec("file", "--brief", "--mime", "--dereference", to_s).stdout))
     def mtime: Long                     = attributes.lastModifiedTime.toMillis
     def readlink: Rep                   = asRep(Files readSymbolicLink path)
     def size: Long                      = attributes.size
     def to_s: String                    = path.toString
     def moveTo(target: Path)            = Files.move(path, target)
+
+    def replaceExtension(newExtension: String): Path =
+      path.resolveSibling(fileName.stripSuffix(extension) + newExtension)
+
+    def permissions: PosixFilePermissions = {
+      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
+      import jnfa.PosixFilePermission._
+      PosixFilePermissions(
+        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
+        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
+        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
+      )
+    }
+
+   // This is not optimal, but follows existing code
+    import fs.Node._
+    def nodeType: fs.NodeType =
+           if (isFile        ) File
+      else if (isDirectory   ) Dir
+      else if (isSymbolicLink) Link
+      else `At some point in time I would love another approach`
+
+    private def `At some point in time I would love another approach` = sys error "Unknown node type"
   }
 
   case class PosixFilePermissions(
@@ -114,9 +155,9 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
   )
 
-  def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
-  def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
-  def homeDir: Path                      = path(sys.props("user.home"))
+  def asFile: String => File = new File(_)
+  def asPath: String => Path = jnf.Paths get _
+  def homeDir: Path          = asPath(sys.props("user.home"))
 
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._

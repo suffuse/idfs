@@ -49,6 +49,30 @@ trait FuseFs extends FuseFilesystem {
 
   def fuseContext(): FuseContext  = super.getFuseContext
   def getOptions(): Array[String] = fs.defaultOptions
+
+  protected def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
+  protected def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
+
+  protected def populateStat(stat: StatInfo, metadata: Metadataish): Unit = {
+    populateMode(stat, metadata)
+    stat size   metadata.size
+    stat atime  metadata.atime
+    stat mtime  metadata.mtime
+    stat blocks metadata.blockCount
+    stat nlink 1
+    stat uid getUID
+    stat gid getGID
+  }
+
+  protected def populateMode(mode: IModeInfo, metadata: Metadataish): Unit = {
+    val pp = metadata.permissions
+    import pp._
+    mode setMode (metadata.nodeType,
+      ownerRead, ownerWrite, ownerExecute,
+      groupRead, groupWrite, groupExecute,
+      otherRead, otherWrite, otherExecute
+    )
+  }
 }
 
 /** This makes it easy to modify or extends the behavior of an existing
@@ -56,6 +80,8 @@ trait FuseFs extends FuseFilesystem {
  */
 abstract class ForwarderFs extends FuseFs {
   protected def underlying: FuseFilesystem
+
+  def resolvePath = underlying.resolvePath
 
   /** The non-path methods. */
   def afterUnmount(mountPoint: File): Unit = underlying.afterUnmount(mountPoint)
@@ -106,7 +132,7 @@ abstract class ForwarderFs extends FuseFs {
 final class DirFiller extends DirectoryFiller {
   private var count = 0
   private val buf = Vector.newBuilder[Path]
-  private def add(s: String): Unit = { buf += path(s) ; count += 1 }
+  private def add(s: String): Unit = { buf += asPath(s) ; count += 1 }
 
   def add(files: jIterable[String]): Boolean = andTrue(files.asScala foreach add)
   def add(files: String*): Boolean           = andTrue(files foreach add)

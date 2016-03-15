@@ -6,7 +6,7 @@ import jio._
 object idfs {
   def apply(from: Path): idfs = new idfs(from)
   def main(args: Array[String]): Unit = args.toList match {
-    case from :: to :: Nil => idfs(path(from)).logging() mountForeground path(to)
+    case from :: to :: Nil => idfs(asPath(from)).logging() mountForeground asPath(to)
     case _                 => println("Usage: idfs <from> <to>")
   }
 }
@@ -14,11 +14,7 @@ object idfs {
 class idfs private (from: Path) extends FuseFsFull {
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     val p    = resolvePath(path)
-    val data = p.allBytes
-    val totalBytes = if (offset + size > data.length) data.length - offset else size
-    effect(totalBytes.toInt)(
-      buf.put(data, offset.toInt, totalBytes.toInt)
-    )
+    writeData(into = buf, data = p.allBytes, amount = size, offset)
   }
   override def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     def impl(): Unit = {
@@ -64,10 +60,8 @@ class idfs private (from: Path) extends FuseFsFull {
   }
   override def getattr(path: String, stat: StatInfo): Int = {
     resolvePath(path) match {
-      case f if f.isFile         => effect(eok)(populateStat(stat, f, Node.File))
-      case d if d.isDirectory    => effect(eok)(populateStat(stat, d, Node.Dir))
-      case l if l.isSymbolicLink => effect(eok)(populateStat(stat, l, Node.Link))
-      case _                     => doesNotExist()
+      case x if x.isKnownType => effect(eok)(populateStat(stat, x))
+      case _                  => doesNotExist()
     }
   }
   override def rename(from: String, to: String): Int = {
@@ -93,7 +87,7 @@ class idfs private (from: Path) extends FuseFsFull {
   }
   override def symlink(target: String, linkName: String): Int = {
     tryFuse {
-      resolvePath("/" + linkName) mklink path(target)
+      resolvePath("/" + linkName) mklink asPath(target)
     }
   }
   override def link(from: String, to: String): Int = {
@@ -106,32 +100,9 @@ class idfs private (from: Path) extends FuseFsFull {
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
   }
 
-  private def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
-  private def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
-  private def resolvePath(p: String): Path = path(s"$from$p")
+  def resolvePath: String => Path = p => asPath(s"$from$p")
   private def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")
-  }
-
-  private def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
-    populateMode(stat, path, nodeType)
-    stat size   path.size
-    stat atime  path.atime
-    stat mtime  path.mtime
-    stat blocks path.blockCount
-    stat nlink 1
-    stat uid getUID
-    stat gid getGID
-  }
-
-  private def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    mode setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
   }
 }

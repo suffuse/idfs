@@ -2,7 +2,9 @@ import java.nio.file._
 import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
-import scala.sys.process.{ Process, ProcessLogger }
+import scala.sys.process.{ Process, ProcessIO, BasicIO }
+import java.io.InputStream
+import java.io.OutputStream
 
 package object suffuse {
   type Buf     = java.nio.ByteBuffer
@@ -37,11 +39,16 @@ package object suffuse {
 
   def exec(argv: String*): ExecResult = {
     val cmd      = argv.toVector
-    var out, err = Vector[String]()
-    val logger   = ProcessLogger(out :+= _, err :+= _)
-    val exit     = Process(cmd, None) ! logger
+    var out, err = Vector[Byte]()
 
-    ExecResult(cmd, exit, out, err)
+    import BasicIO._
+    def connect(out: OutputStream): InputStream => Unit = transferFully(_, out)
+    def process(f: Byte => Unit) = connect(new OutputStream { def write(b: Int) = f(b.toByte) })
+
+    val io    = new ProcessIO(input(false), process(out :+= _), process(err :+= _))
+    val exit  = Process(cmd, None).run(io).exitValue()
+
+    ExecResult(cmd, exit, out.toArray, err.toArray)
   }
 
   implicit class ThrowableOps(t: Throwable) {
