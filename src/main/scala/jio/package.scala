@@ -93,9 +93,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def size = allBytes.size
   }
 
-  object Metadata {
-    val NonExistsent: Metadataish = Metadata(null, null, null, null, 0, 0)
-  }
+  val NoMetadata: Metadataish = Metadata(null, null, null, null, 0, 0)
 
   trait Pathish[Rep] extends Metadataish {
     def path: Path

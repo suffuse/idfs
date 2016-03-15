@@ -15,7 +15,11 @@ class MappedFs(
 
   override def getattr(path: String, stat: StatInfo): Int = {
     resolvePath(path) match {
-      case p if p.exists => effect(eok)(populateStat(stat, map(p)))
+      case p if p.exists =>
+        map(p) match {
+          case NoMetadata => doesNotExist()
+          case metadata   => effect(eok)(populateStat(stat, metadata))
+        }
       case _ => doesNotExist()
     }
   }
