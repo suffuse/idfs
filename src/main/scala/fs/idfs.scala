@@ -6,7 +6,7 @@ import jio._
 object idfs {
   def apply(from: Path): idfs = new idfs(from)
   def main(args: Array[String]): Unit = args.toList match {
-    case from :: to :: Nil => idfs(path(from)).logging() mountForeground path(to)
+    case from :: to :: Nil => idfs(asPath(from)).logging() mountForeground asPath(to)
     case _                 => println("Usage: idfs <from> <to>")
   }
 }
@@ -87,7 +87,7 @@ class idfs private (from: Path) extends FuseFsFull {
   }
   override def symlink(target: String, linkName: String): Int = {
     tryFuse {
-      resolvePath("/" + linkName) mklink path(target)
+      resolvePath("/" + linkName) mklink asPath(target)
     }
   }
   override def link(from: String, to: String): Int = {
@@ -100,7 +100,7 @@ class idfs private (from: Path) extends FuseFsFull {
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
   }
 
-  def resolvePath: String => Path = p => path(s"$from$p")
+  def resolvePath: String => Path = p => asPath(s"$from$p")
   private def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")

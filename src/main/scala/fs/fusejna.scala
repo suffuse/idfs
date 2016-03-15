@@ -132,7 +132,7 @@ abstract class ForwarderFs extends FuseFs {
 final class DirFiller extends DirectoryFiller {
   private var count = 0
   private val buf = Vector.newBuilder[Path]
-  private def add(s: String): Unit = { buf += path(s) ; count += 1 }
+  private def add(s: String): Unit = { buf += asPath(s) ; count += 1 }
 
   def add(files: jIterable[String]): Boolean = andTrue(files.asScala foreach add)
   def add(files: String*): Boolean           = andTrue(files foreach add)

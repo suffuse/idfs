@@ -17,7 +17,7 @@ class FilteredDirFiller(filler: DirectoryFiller, condition: String => Boolean) e
 
 object filterfs {
   def main(args: Array[String]): Unit = args.toList match {
-    case from :: to :: regex :: Nil => idfs(path(from)) filterNot (_.to_s matches regex) mountForeground path(to)
+    case from :: to :: regex :: Nil => idfs(asPath(from)) filterNot (_.to_s matches regex) mountForeground asPath(to)
     case _                          => println("Usage: filter <from> <to> <regex>")
   }
 }
