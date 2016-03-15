@@ -37,12 +37,12 @@ object mapfs {
   }
 
   private def extensionsWithCommand(sourceExt: String, targetExt: String, command: String): Path => Metadataish = {
-    case p if p.to_s endsWith ("." + sourceExt) =>
-      val target = replaceExtension(p, sourceExt, targetExt)
+    case p if p.extension ==  sourceExt =>
+      val target = p.replaceExtension(targetExt)
       materialize(target, data = convert(p, command), source = p)
 
-    case p if p.to_s endsWith ("." + targetExt) =>
-      val source = replaceExtension(p, targetExt, sourceExt)
+    case p if p.extension == targetExt =>
+      val source = p.replaceExtension(sourceExt)
       materialize(p, data = convert(source, command), source)
 
     case p => p
@@ -50,18 +50,10 @@ object mapfs {
 
   private def materialize(path: Path, data: Array[Byte], source: Path) =
     Metadata(
-      exists = true, Node.File, path, data,
+      exists = true, Node.File, path.fileName, data,
       source.permissions, source.atime, source.mtime
     )
 
   private def convert(path: Path, command: String): Array[Byte] =
     exec(command, path.to_s).stdout
-
-  private def replaceExtension(path: Path, fromExt: String, toExt: String): Path =
-    path resolveSibling (path.fileName.replaceLast(fromExt, toExt))
-
-  private implicit class StringOps(val s: String) extends AnyVal {
-    def replaceLast(find: String, replace: String) =
-      s.substring(0, s.lastIndexOf(find)) + replace
-  }
 }

@@ -66,15 +66,20 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
 
   trait Metadataish {
     def exists: Boolean
-    def path: Path
     def allBytes: Array[Byte]
     def nodeType: fs.NodeType
     def size: Long
     def permissions: PosixFilePermissions
     def atime: Long
     def mtime: Long
+    def fileName : String
 
-    def fileName : String    = path.getFileName.to_s
+    def extension: String = {
+      val i = fileName.lastIndexOf(".")
+      if (i < 0) ""
+      else fileName.substring(i + 1)
+    }
+
     def blockCount: Long = (size + blockSize - 1) / blockSize
     def blockSize: Long  = 512 // FIXME
   }
@@ -83,7 +88,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   // I however could not get myself to repeat all those arguments
   case class Metadata(
     exists: Boolean,
-    nodeType: fs.NodeType, path: Path, allBytes: Array[Byte],
+    nodeType: fs.NodeType, fileName: String, allBytes: Array[Byte],
     permissions: PosixFilePermissions,
     atime: Long, mtime: Long
   ) extends Metadataish {
@@ -108,6 +113,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
      *    readdir readfile readlink?
      */
 
+    def fileName: String                = path.getFileName.to_s
     def allBytes: Array[Byte]           = Files readAllBytes path
     def atime: Long                     = attributes.lastAccessTime.toMillis
     def attributes: BasicFileAttributes = Files readAttributes(path, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
@@ -124,6 +130,9 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def size: Long                      = attributes.size
     def to_s: String                    = path.toString
     def moveTo(target: Path)            = Files.move(path, target)
+
+    def replaceExtension(newExtension: String): Path =
+      path.resolveSibling(fileName.stripSuffix(extension) + newExtension)
 
     def permissions: PosixFilePermissions = {
       val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
