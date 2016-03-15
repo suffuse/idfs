@@ -19,26 +19,24 @@ package object fs {
   type XattrFiller       = net.fusejna.XattrFiller
   type XattrListFiller   = net.fusejna.XattrListFiller
 
+  trait PathResolving {
+    def resolvePath: String => jio.Path
+  }
+
   def addUnmountHook(fs: FuseFs): Unit =
     scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
 
   // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
   def defaultOptions = Array("-o", "direct_io,default_permissions")
 
-  implicit class FuseFilesystemOps(val fs: FuseFilesystem) extends AnyVal {
-    def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)
-    def filterNot(p: String => Boolean): FuseFs = new FilteredFs(fs, x => !p(x))
+  implicit class FuseFilesystemOps(val fs: FuseFilesystem with PathResolving) extends AnyVal {
+    def filter   (p: jio.Path => Boolean        ): FuseFs = new FilteredFs(fs, p)
+    def filterNot(p: jio.Path => Boolean        ): FuseFs = new FilteredFs(fs, x => !p(x))
+    def map      (f: jio.Path => jio.Metadataish): FuseFs = new MappedFs(fs, f)
   }
 
-  implicit class MetadataOps(val m: jio.Metadata) extends AnyVal {
-    import Node._
-    // This is not optimal, but follows existing code
-    def nodeType: NodeType =
-           if (m.isFile        ) File
-      else if (m.isDirectory   ) Dir
-      else if (m.isSymbolicLink) Link
-      else `At some point in time I would love another approach`
-
-    private def `At some point in time I would love another approach` = sys error "Unknown node type"
+  def writeData(into: jio.ByteBuffer, data: Array[Byte], amount: Long, offset: Long): Int = {
+    val totalBytes = if (offset + amount > data.length) data.length - offset else amount
+    effect(totalBytes.toInt)(into.put(data, offset.toInt, totalBytes.toInt))
   }
 }

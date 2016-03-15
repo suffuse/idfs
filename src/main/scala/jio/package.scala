@@ -64,18 +64,37 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     }
   }
 
-  trait Metadata {
+  trait Metadataish {
+    def exists: Boolean
+    def path: Path
+    def allBytes: Array[Byte]
+    def nodeType: fs.NodeType
+    def size: Long
     def permissions: PosixFilePermissions
     def atime: Long
     def mtime: Long
-    def blockCount: Long
-    def size: Long
-    def isDirectory: Boolean
-    def isFile: Boolean
-    def isSymbolicLink: Boolean
+
+    def name : String    = path.getFileName.to_s
+    def blockCount: Long = (size + blockSize - 1) / blockSize
+    def blockSize: Long  = 512 // FIXME
   }
 
-  trait Pathish[Rep] extends Metadata {
+  // this could have been an apply method in an object allowing the use of Metadata instead of Metadataish
+  // I however could not get myself to repeat all those arguments
+  case class Metadata(
+    exists: Boolean,
+    nodeType: fs.NodeType, path: Path, allBytes: Array[Byte],
+    permissions: PosixFilePermissions,
+    atime: Long, mtime: Long
+  ) extends Metadataish {
+    def size = allBytes.size
+  }
+
+  object Metadata {
+    val NonExistent: Metadataish = Metadata(false, null, null, null, null, 0, 0)
+  }
+
+  trait Pathish[Rep] extends Metadataish {
     def path: Path
     def asRep(p: Path): Rep
 
@@ -92,17 +111,14 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def allBytes: Array[Byte]           = Files readAllBytes path
     def atime: Long                     = attributes.lastAccessTime.toMillis
     def attributes: BasicFileAttributes = Files readAttributes(path, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
-    def blockCount: Long                = (attributes.size + blockSize - 1) / blockSize
-    def blockSize: Long                 = 512 // FIXME
     def delete(): Unit                  = Files delete path
     def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
-    def filename: String                = path.getFileName.to_s
     def isKnownType: Boolean            = isDirectory || isFile || isSymbolicLink
     def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
     def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
     def isSymbolicLink: Boolean         = Files isSymbolicLink path
     def ls: Vector[Rep]                 = (Files list path).toVector map asRep
-    def mediaType: MediaType            = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
+    def mediaType: MediaType            = MediaType(new String(exec("file", "--brief", "--mime", "--dereference", to_s).stdout))
     def mtime: Long                     = attributes.lastModifiedTime.toMillis
     def readlink: Rep                   = asRep(Files readSymbolicLink path)
     def size: Long                      = attributes.size
@@ -118,6 +134,16 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
         pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
       )
     }
+
+   // This is not optimal, but follows existing code
+    import fs.Node._
+    def nodeType: fs.NodeType =
+           if (isFile        ) File
+      else if (isDirectory   ) Dir
+      else if (isSymbolicLink) Link
+      else `At some point in time I would love another approach`
+
+    private def `At some point in time I would love another approach` = sys error "Unknown node type"
   }
 
   case class PosixFilePermissions(

@@ -53,7 +53,7 @@ trait FuseFs extends FuseFilesystem {
   protected def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
   protected def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
 
-  protected def populateStat(stat: StatInfo, metadata: Metadata): Unit = {
+  protected def populateStat(stat: StatInfo, metadata: Metadataish): Unit = {
     populateMode(stat, metadata)
     stat size   metadata.size
     stat atime  metadata.atime
@@ -64,7 +64,7 @@ trait FuseFs extends FuseFilesystem {
     stat gid getGID
   }
 
-  protected def populateMode(mode: IModeInfo, metadata: Metadata): Unit = {
+  protected def populateMode(mode: IModeInfo, metadata: Metadataish): Unit = {
     val pp = metadata.permissions
     import pp._
     mode setMode (metadata.nodeType,
@@ -78,8 +78,10 @@ trait FuseFs extends FuseFilesystem {
 /** This makes it easy to modify or extends the behavior of an existing
  *  filesystem instance by overriding a small handful of methods.
  */
-abstract class ForwarderFs extends FuseFs {
-  protected def underlying: FuseFilesystem
+abstract class ForwarderFs extends FuseFs with PathResolving {
+  protected def underlying: FuseFilesystem with PathResolving
+
+  def resolvePath = underlying.resolvePath
 
   /** The non-path methods. */
   def afterUnmount(mountPoint: File): Unit = underlying.afterUnmount(mountPoint)

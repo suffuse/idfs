@@ -11,14 +11,10 @@ object idfs {
   }
 }
 
-class idfs private (from: Path) extends FuseFsFull {
+class idfs private (from: Path) extends FuseFsFull with PathResolving {
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     val p    = resolvePath(path)
-    val data = p.allBytes
-    val totalBytes = if (offset + size > data.length) data.length - offset else size
-    effect(totalBytes.toInt)(
-      buf.put(data, offset.toInt, totalBytes.toInt)
-    )
+    writeData(into = buf, data = p.allBytes, amount = size, offset)
   }
   override def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     def impl(): Unit = {
@@ -104,7 +100,7 @@ class idfs private (from: Path) extends FuseFsFull {
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
   }
 
-  private def resolvePath(p: String): Path = path(s"$from$p")
+  def resolvePath: String => Path = p => path(s"$from$p")
   private def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")
