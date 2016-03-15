@@ -68,7 +68,7 @@ object mapfs {
   }
 
   private def materialize(path: Path, data: Array[Byte], source: Path) =
-    Metadata(
+    NonPhysicalFile(
       Node.File, path.fileName, data,
       source.permissions, source.atime, source.mtime
     )

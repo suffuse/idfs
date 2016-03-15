@@ -83,9 +83,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def blockSize: Long  = 512 // FIXME
   }
 
-  // this could have been an apply method in an object allowing the use of Metadata instead of Metadataish
-  // I however could not get myself to repeat all those arguments
-  case class Metadata(
+  case class NonPhysicalFile(
     nodeType: fs.NodeType, fileName: String, allBytes: Array[Byte],
     permissions: PosixFilePermissions,
     atime: Long, mtime: Long
@@ -93,7 +91,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def size = allBytes.size
   }
 
-  val NoMetadata: Metadataish = Metadata(null, null, null, null, 0, 0)
+  val NoMetadata: Metadataish = NonPhysicalFile(null, null, null, null, 0, 0)
 
   trait Pathish[Rep] extends Metadataish {
     def path: Path
