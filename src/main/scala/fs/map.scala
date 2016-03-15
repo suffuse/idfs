@@ -6,7 +6,7 @@ import jio._
 /** Forwarding filesystem which maps files in a readonly sense.
  */
 class MappedFs(
-  protected val underlying: FuseFilesystem with PathResolving,
+  protected val underlying: FuseFilesystem,
   map: Path => Metadataish
 ) extends ForwarderFs {
 

@@ -5,7 +5,7 @@ import jio._
 
 /** Forwarding filesystem which only passes through paths which match the filter.
  */
-class FilteredFs(protected val underlying: FuseFilesystem with PathResolving, cond: Path => Boolean) extends ForwarderFs {
+class FilteredFs(protected val underlying: FuseFilesystem, cond: Path => Boolean) extends ForwarderFs {
   override def readdir(path: String, df: DirectoryFiller): Int =
     underlying.readdir(path, new FilteredDirFiller(df, resolvePath andThen cond))
 }

@@ -11,7 +11,7 @@ object idfs {
   }
 }
 
-class idfs private (from: Path) extends FuseFsFull with PathResolving {
+class idfs private (from: Path) extends FuseFsFull {
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     val p    = resolvePath(path)
     writeData(into = buf, data = p.allBytes, amount = size, offset)

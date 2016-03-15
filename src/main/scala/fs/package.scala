@@ -7,7 +7,6 @@ package object fs {
   type FlockWrapper      = net.fusejna.StructFlock.FlockWrapper
   type FuseContext       = net.fusejna.StructFuseContext
   type FuseException     = net.fusejna.FuseException
-  type FuseFilesystem    = net.fusejna.FuseFilesystem
   type IModeInfo         = net.fusejna.types.TypeMode.IModeWrapper
   type ModeInfo          = net.fusejna.types.TypeMode.ModeWrapper
   type NodeType          = net.fusejna.types.TypeMode.NodeType
@@ -19,7 +18,7 @@ package object fs {
   type XattrFiller       = net.fusejna.XattrFiller
   type XattrListFiller   = net.fusejna.XattrListFiller
 
-  trait PathResolving {
+  trait FuseFilesystem extends net.fusejna.FuseFilesystem {
     def resolvePath: String => jio.Path
   }
 
@@ -29,7 +28,7 @@ package object fs {
   // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
   def defaultOptions = Array("-o", "direct_io,default_permissions")
 
-  implicit class FuseFilesystemOps(val fs: FuseFilesystem with PathResolving) extends AnyVal {
+  implicit class FuseFilesystemOps(val fs: FuseFilesystem) extends AnyVal {
     def filter   (p: jio.Path => Boolean        ): FuseFs = new FilteredFs(fs, p)
     def filterNot(p: jio.Path => Boolean        ): FuseFs = new FilteredFs(fs, x => !p(x))
     def map      (f: jio.Path => jio.Metadataish): FuseFs = new MappedFs(fs, f)

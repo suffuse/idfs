@@ -78,8 +78,8 @@ trait FuseFs extends FuseFilesystem {
 /** This makes it easy to modify or extends the behavior of an existing
  *  filesystem instance by overriding a small handful of methods.
  */
-abstract class ForwarderFs extends FuseFs with PathResolving {
-  protected def underlying: FuseFilesystem with PathResolving
+abstract class ForwarderFs extends FuseFs {
+  protected def underlying: FuseFilesystem
 
   def resolvePath = underlying.resolvePath
 
