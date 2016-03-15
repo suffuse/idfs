@@ -65,7 +65,6 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   }
 
   trait Metadataish {
-    def exists: Boolean
     def allBytes: Array[Byte]
     def nodeType: fs.NodeType
     def size: Long
@@ -87,7 +86,6 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   // this could have been an apply method in an object allowing the use of Metadata instead of Metadataish
   // I however could not get myself to repeat all those arguments
   case class Metadata(
-    exists: Boolean,
     nodeType: fs.NodeType, fileName: String, allBytes: Array[Byte],
     permissions: PosixFilePermissions,
     atime: Long, mtime: Long
@@ -96,7 +94,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   }
 
   object Metadata {
-    val NonExistent: Metadataish = Metadata(false, null, null, null, null, 0, 0)
+    val NonExistsent: Metadataish = Metadata(null, null, null, null, 0, 0)
   }
 
   trait Pathish[Rep] extends Metadataish {

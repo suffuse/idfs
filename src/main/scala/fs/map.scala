@@ -14,9 +14,10 @@ class MappedFs(
     underlying.readdir(path, new MappedDirFiller(df, resolvePath andThen map andThen (_.fileName)))
 
   override def getattr(path: String, stat: StatInfo): Int = {
-    val metadata = map(resolvePath(path))
-    if (metadata.exists) effect(eok)(populateStat(stat, metadata))
-    else doesNotExist()
+    resolvePath(path) match {
+      case p if p.exists => effect(eok)(populateStat(stat, map(p)))
+      case _ => doesNotExist()
+    }
   }
 
   override def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
@@ -50,7 +51,7 @@ object mapfs {
 
   private def materialize(path: Path, data: Array[Byte], source: Path) =
     Metadata(
-      exists = true, Node.File, path.fileName, data,
+      Node.File, path.fileName, data,
       source.permissions, source.atime, source.mtime
     )
 
