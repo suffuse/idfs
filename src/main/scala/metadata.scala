@@ -5,8 +5,7 @@ package suffuse
  *  provide when there is no value in the map. This as opposed
  *  to wrapping everything in sight in Option.
  */
-final class AKey[A](description: String, empty: => A) {
-  def emptyValue: A = empty
+final class AKey[A](description: String) {
   override def toString = description
 }
 
@@ -39,13 +38,13 @@ object Attr {
  *  A typed value can be obtained for any key.
  */
 sealed class Metadata(attrs: Vector[Attr]) {
-  private[this] val untypedMap                   = attrs.foldLeft(Map[AKey[_], Any]())(_ + _.pair)
-  private def doApply[A]()(implicit z: AKey[A]): A = untypedMap(z).asInstanceOf[A]
+  private[this] val untypedMap                             = attrs.foldLeft(Map.empty[AKey[_], Any])(_ + _.pair)
+  private def doApply[A]()(implicit z: AKey[A]): Option[A] = untypedMap get z map (_.asInstanceOf[A])
 
-  def isEmpty                                = untypedMap.isEmpty
-  def apply[A]()(implicit z: AKey[A]): A     = if (has[A]) doApply[A]() else z.emptyValue
-  def has[A]()(implicit z: AKey[A]): Boolean = keys contains z
-  def keys: Vector[AKey[_]]                  = attrs map (_.key)
+  def isEmpty                                  = untypedMap.isEmpty
+  def apply[A](implicit z: AKey[A]): Option[A] = doApply[A]
+  def has[A](implicit z: AKey[A]): Boolean     = keys contains z
+  def keys: Vector[AKey[_]]                    = attrs map (_.key)
 
   /** Set could also hold onto the old value, and just return the last one.
    *  It would amount to preserving the attribute's history.
@@ -62,9 +61,9 @@ object Metadata extends Metadata(Vector()) {
 object Example {
   /** Implicit keys are the road to strongly typed and usable both.
    */
-  implicit val mtime = new AKey[Mtime]("modification time", Mtime(0))
-  implicit val atime = new AKey[Atime]("access time", Atime(0))
-  implicit val size  = new AKey[Size]("size in bytes", Size(-1L))
+  implicit val mtime = new AKey[Mtime]("modification time")
+  implicit val atime = new AKey[Atime]("access time")
+  implicit val size  = new AKey[Size]("size in bytes")
 
   final case class Mtime(val timestamp: Long)
   final case class Atime(val timestamp: Long)
