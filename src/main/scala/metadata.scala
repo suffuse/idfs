@@ -5,7 +5,7 @@ package suffuse
  *  provide when there is no value in the map. This as opposed
  *  to wrapping everything in sight in Option.
  */
-final class AKey[A](description: String) {
+class AKey[A](description: String) {
   override def toString = description
 }
 
@@ -61,19 +61,21 @@ object Metadata extends Metadata(Vector()) {
 object Example {
   /** Implicit keys are the road to strongly typed and usable both.
    */
-  implicit val mtime = new AKey[Mtime]("modification time")
-  implicit val atime = new AKey[Atime]("access time")
-  implicit val size  = new AKey[Size]("size in bytes")
+  final case class atime(val timestamp: Long)
+  implicit object atime extends AKey[atime]("access time")
 
-  final case class Mtime(val timestamp: Long)
-  final case class Atime(val timestamp: Long)
-  final case class Size(val bytes: Long)
+  final case class mtime(val timestamp: Long)
+  implicit object mtime extends AKey[mtime]("modification time")
+
+  final case class size(val bytes: Long)
+  implicit object size extends AKey[size]("size in bytes")
 
   def main(args: Array[String]): Unit = {
-    var attrs = Metadata set Mtime(123L) set Size(456L)
+    var attrs = Metadata set mtime(123L) set size(456L)
     println(attrs)
-    attrs = attrs set Size(10000L) set Atime(789)
+    attrs = attrs set size(10000L) set atime(789)
     println(attrs)
-    println("Size is " + attrs[Size])
+    println("Size is " + attrs[size])
+    println("Size is " + attrs(size))
   }
 }
