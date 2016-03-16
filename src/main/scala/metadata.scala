@@ -38,7 +38,7 @@ object Attr {
 /** A Metadata map, holding any number of well typed Attrs.
  *  A typed value can be obtained for any key.
  */
-final class Metadata(attrs: Vector[Attr]) {
+sealed class Metadata(attrs: Vector[Attr]) {
   private[this] val untypedMap                   = attrs.foldLeft(Map[AKey[_], Any]())(_ + _.pair)
   private def doApply[A]()(implicit z: AKey[A]): A = untypedMap(z).asInstanceOf[A]
 
@@ -55,11 +55,8 @@ final class Metadata(attrs: Vector[Attr]) {
 
   override def toString = if (isEmpty) "{ }" else attrs mkString ("{\n  ", "\n  ", "\n}")
 }
-object Metadata {
-  private[this] val Empty: Metadata = new Metadata(Vector())
-
-  def empty(): Metadata             = Empty
-  def apply(attrs: Attr*): Metadata = attrs.foldLeft(empty)(_ set _)
+object Metadata extends Metadata(Vector()) {
+  def apply(attrs: Attr*): Metadata = attrs.foldLeft[Metadata](this)(_ set _)
 }
 
 object Example {
@@ -74,7 +71,7 @@ object Example {
   final case class Size(val bytes: Long)
 
   def main(args: Array[String]): Unit = {
-    var attrs = Metadata() set Mtime(123L) set Size(456L)
+    var attrs = Metadata set Mtime(123L) set Size(456L)
     println(attrs)
     attrs = attrs set Size(10000L) set Atime(789)
     println(attrs)
