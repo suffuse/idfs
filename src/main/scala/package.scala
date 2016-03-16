@@ -44,6 +44,12 @@ package object suffuse {
     ExecResult(cmd, exit, out, err)
   }
 
+  implicit class AnyOps[A](val x: A) {
+    def id_## : Int            = java.lang.System.identityHashCode(x)
+    def id_==(y: Any): Boolean = x.asInstanceOf[AnyRef] eq y.asInstanceOf[AnyRef]  // Calling eq on Anys.
+
+    @inline def |>[B](f: A => B): B = f(x) // The famed forward pipe.
+  }
   implicit class ThrowableOps(t: Throwable) {
     println(t)
     def toErrno: Int = t match {

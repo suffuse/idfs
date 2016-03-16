@@ -83,6 +83,9 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def mkfile(bits: Long): Rep   = asRep(createFile(path, asFileAttribute(bitsAsPermissions(bits))))
     def mklink(target: Path): Rep = asRep(createSymbolicLink(path, target))
 
+    private def withDirStream[A](dir: Path)(code: jStream[Path] => A): A =
+      (Files list dir) |> (str => try code(str) finally str.close())
+
     /** Some consistent naming scheme for various operations would be a boon.
      *    isdir isfile islink?
      *    readdir readfile readlink?
@@ -94,12 +97,13 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def blockCount: Long                = (attributes.size + blockSize - 1) / blockSize
     def blockSize: Long                 = 512 // FIXME
     def delete(): Unit                  = Files delete path
+    def depth: Int                      = path.getNameCount
     def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
     def filename: String                = path.getFileName.to_s
     def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
     def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
     def isSymbolicLink: Boolean         = Files isSymbolicLink path
-    def ls: Vector[Rep]                 = (Files list path).toVector map asRep
+    def ls: Vector[Rep]                 = if (isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
     def mediaType: MediaType            = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
     def mtime: Long                     = attributes.lastModifiedTime.toMillis
     def readlink: Rep                   = asRep(Files readSymbolicLink path)
