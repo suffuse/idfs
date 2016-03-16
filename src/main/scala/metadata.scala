@@ -30,7 +30,7 @@ final case class AttrOf[A](key: AKey[A], value: A) extends Attr {
 }
 
 object Attr {
-  def apply[A](value: A)(implicit key: AKey[A]): AttrOf[A] = new AttrOf[A](key, value)
+  implicit def apply[A](value: A)(implicit key: AKey[A]): AttrOf[A] = new AttrOf[A](key, value)
   def unapply(x: Attr): Some[(AKey[x.Type], x.Type)]       = Some(x.pair)
 }
 
@@ -76,6 +76,7 @@ object Example {
     attrs = attrs set size(10000L) set atime(789)
     println(attrs)
     println("Size is " + attrs[size])
+    attrs = Metadata(mtime(23), mtime(45))
     println("Size is " + attrs(size))
   }
 }
