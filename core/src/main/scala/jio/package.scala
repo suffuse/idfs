@@ -1,4 +1,4 @@
-package suffuse
+package sfs
 
 import java.nio.ByteBuffer
 import java.nio.{ file => jnf }
@@ -10,6 +10,7 @@ import jnfa.PosixFilePermissions.asFileAttribute
 import java.util.concurrent.TimeUnit
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
+import api._
 
 package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   val UTF8 = java.nio.charset.Charset forName "UTF-8"

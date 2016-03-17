@@ -1,6 +1,5 @@
-package suffuse
-
-import api._
+package sfs
+package api
 
 object Example {
   final case class Mtime(timestamp: Long)

@@ -1,5 +1,5 @@
-package suffuse
-package fs
+package sfs
+package fuse
 
 import jio._
 
@@ -23,7 +23,7 @@ abstract class FuseFsFull extends net.fusejna.util.FuseFilesystemAdapterFull wit
   // [error] /g/idfs/src/main/scala/fs/fusejna.scala:23: class FuseFsFull inherits conflicting members:
   // [error]   method getOptions in class FuseFilesystemAdapterFull of type ()Array[String]  and
   // [error]   method getOptions in trait FuseFs of type ()Array[String]
-  override def getOptions() = fs.defaultOptions
+  override def getOptions() = fuse.defaultOptions
 }
 
 /** Widening access so we don't have to use inheritance everywhere.
@@ -48,7 +48,7 @@ trait FuseFs extends FuseFilesystem {
   def mountForeground(mountPoint: Path): this.type = doMount(mountPoint.toFile, blocking = true)
 
   def fuseContext(): FuseContext  = super.getFuseContext
-  def getOptions(): Array[String] = fs.defaultOptions
+  def getOptions(): Array[String] = fuse.defaultOptions
 }
 
 /** This makes it easy to modify or extends the behavior of an existing

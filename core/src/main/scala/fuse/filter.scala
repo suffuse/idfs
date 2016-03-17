@@ -1,5 +1,5 @@
-package suffuse
-package fs
+package sfs
+package fuse
 
 import jio._
 

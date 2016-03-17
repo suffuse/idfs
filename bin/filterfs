@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #
 
-sbt "runMain suffuse.fs.filterfs $*"
+sbt "runMain sfs.fuse.filterfs $*"

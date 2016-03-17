@@ -4,7 +4,7 @@ import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
 
-package object suffuse {
+package object sfs {
   type Buf     = java.nio.ByteBuffer
   type Try[+A] = scala.util.Try[A]
   type uV      = scala.annotation.unchecked.uncheckedVariance

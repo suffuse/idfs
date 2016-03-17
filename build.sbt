@@ -1,4 +1,4 @@
-lazy val `fuse-jna` = project settings (
+lazy val `fuse-jna` = project in file("ext/fuse-jna") settings (
            crossPaths := false,
   libraryDependencies += "net.java.dev.jna" % "jna" % "4.2.1"
 )
@@ -7,11 +7,11 @@ lazy val suffuse = ( project in file(".")
   aggregate (core)
   dependsOn (core)
   settings common settings (
-    initialCommands in console :=  "import suffuse._, jio._"
+    initialCommands in console := "import sfs._, jio._"
   )
 )
 
-lazy val core  = project dependsOn `fuse-jna` settings common
+lazy val core = project dependsOn `fuse-jna` settings common
 
 def common = Seq[Setting[_]](
                 organization :=  "org.improving",

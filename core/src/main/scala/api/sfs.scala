@@ -1,4 +1,4 @@
-package suffuse
+package sfs
 package api
 
 trait Filesystem {
