@@ -3,18 +3,10 @@ import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
-import api._
+import sfs.api._
 
-package object sfs {
-  type Buf     = java.nio.ByteBuffer
-  type Try[+A] = scala.util.Try[A]
-  type uV      = scala.annotation.unchecked.uncheckedVariance
-
-  def Try[A](body: => A): Try[A]        = scala.util.Try[A](body)
-  def tryFuse(body: => Unit): Int       = Try(body) fold (_.toErrno, _ => eok)
-  def andTrue(x: Unit): Boolean         = true
-  def doto[A](x: A)(f: A => Unit): A    = { f(x) ; x }
-  def effect[A](x: A)(effects: Any*): A = x
+package object sfs extends sfs.api.Api {
+  def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
 
   def alreadyExists()  = -EEXIST
   def doesNotExist()   = -ENOENT
@@ -23,8 +15,6 @@ package object sfs {
   def isNotValid()     = -EINVAL
   def notImplemented() = -ENOSYS
   def notSupported()   = notImplemented()
-
-  def empty[A](implicit z: Empty[A]): A = z.emptyValue
 
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //
