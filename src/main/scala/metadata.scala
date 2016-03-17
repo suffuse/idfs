@@ -2,83 +2,101 @@ package suffuse
 
 import api._
 
-/** AKey is an attribute key: a Metadata map key which carries
- *  both the type of the corresponding value, and a value to
- *  provide when there is no value in the map. This as opposed
- *  to wrapping everything in sight in Option.
- */
-class AKey[A](description: String) extends ShowSelf {
-  def to_s = description
-}
-
-/** KVPair is a dependently typed key/value pair.
- */
-trait KVPair extends Any with ShowDirect {
-  type Type
-  def key: AKey[Type]
-  def value: Type
-
-  def hasSameKey(that: KVPair)          = this hasKey that.key
-  def hasKey[A](implicit that: AKey[A]) = key == that
-
-  def pair = key -> value
-  def to_s = s"$key: $value"
-}
-
-object KVPair {
-  type Of[A] = KVPair { type Type = A }
-
-  /** The simple implementation of KVPair, which ties the knot between the
-   *  user-facing type parameter and the type member which couples key and value.
-   */
-  private case class KVPairOf[A](key: AKey[A], value: A) extends KVPair with ShowSelf { type Type = A }
-
-  def apply[A](value: A)(implicit key: AKey[A]): Of[A] = new KVPairOf[A](key, value)
-  def unapply(x: KVPair): Some[(AKey[x.Type], x.Type)] = Some(x.pair)
-}
-
-/** A Metadata map, holding any number of well typed KVPairs.
- *  A typed value can be obtained for any key.
- */
-sealed class Metadata(pairs: Vector[KVPair]) extends ShowSelf {
-  private[this] val untypedMap                                        = pairs.foldLeft(Map[AKey[_], Any]())(_ + _.pair)
-  private def doApply[A]()(implicit z: AKey[A]): A                    = untypedMap(z).asInstanceOf[A]
-  private def mapPairs(f: Vector[KVPair] => Vector[KVPair]): Metadata = new Metadata(f(pairs))
-
-  def isEmpty                                          = untypedMap.isEmpty
-  def apply[A]()(implicit z: AKey[A], ze: Empty[A]): A = if (has[A]) doApply[A]() else ze.emptyValue
-  def has[A]()(implicit z: AKey[A]): Boolean           = pairs exists (_ hasKey z)
-  def keys: Vector[AKey[_]]                            = pairs map (_.key)
-  def drop[A]()(implicit z: AKey[A]): Metadata         = if (has[A]) mapPairs(_ filterNot (_ hasKey z)) else this
-
-  /** Set could also hold onto the old value, and just return the last one.
-   *  It would amount to preserving the attribute's history.
-   */
-  def set(attr: KVPair): Metadata      = drop()(attr.key) mapPairs (_ :+ attr)
-  def set[A: AKey](value: A): Metadata = set(KVPair[A](value))
-
-  def to_s = if (isEmpty) "{ }" else pairs mkString ("{\n  ", "\n  ", "\n}")
-}
-object Metadata extends Metadata(Vector()) {
-  def apply(pairs: KVPair*): Metadata = pairs.foldLeft(this: Metadata)(_ set _)
-}
-
 object Example {
   final case class Mtime(timestamp: Long)
   final case class Atime(timestamp: Long)
   final case class Size(bytes: Long)
 
-  implicit object Mtime extends AKey[Mtime]("modification time")
-  implicit object Atime extends AKey[Atime]("access time")
-  implicit object Size extends AKey[Size]("size in bytes")
+  // Using these explicitly should be discouraged, this can be a convention rather than an enforcement
+  implicit val mtime = new Key[Mtime]("modification time")
+  implicit val atime = new Key[Atime]("access time")
+  implicit val size  = new Key[Size]("size in bytes")
 
   implicit def emptySize: Empty[Size] = Empty(Size(-1L))
 
   def main(args: Array[String]): Unit = {
-    var attrs = Metadata set Mtime(123L) set Size(456L)
+    var attrs = Metadata set Mtime(123L)
+    println("Size is " + attrs[Size])
+    attrs = attrs set Size(456L)
     println(attrs)
     attrs = attrs set Size(10000L) set Atime(789)
     println(attrs)
     println("Size is " + attrs[Size])
   }
+}
+
+/*
+ * Conventions:
+ *
+ * - methods that are intended to be used with 'type parameters only' should be written:
+ *     `def name[A]()(implicit z: Implicit[A]): ReturnType`
+ *   The argument list should be empty and the implicit should be in the second argument list.
+ *   This makes explicit passing of the argument awkward. Implicit arguments are typically called `z`
+ * - limit the use of `val` to an absolute minimum
+ * - think twice before writing the `extends` or `override` keyword.
+ */
+
+/** A Metadata map, holding any number of well typed Attributes.
+ *  A typed value can be obtained for any key.
+ */
+sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
+  private val untypedMap                         = attributes.foldLeft(Map[Key[_], Any]())(_ + _.pair)
+  private def untypedAs[A]()(implicit z: Key[A]) = untypedMap(z).asInstanceOf[A]
+
+  def apply[A: Empty]()(implicit z: Key[A]): A = if (has[A]) untypedAs[A] else Empty[A]
+
+  def isEmpty                                  = untypedMap.isEmpty
+  def has[A]()(implicit z: Key[A]): Boolean    = attributes exists (_ hasKey z)
+  def keys: Vector[Key[_]]                     = attributes map (_.key)
+
+  def drop(attr: Attribute): Metadata          = drop()(attr.key)
+  def drop[A]()(implicit z: Key[A]): Metadata  = if (has[A]) mapAttributes(_ filterNot (_ hasKey z)) else this
+
+  /** Set could also hold onto the old value, and just return the last one.
+   *  It would amount to preserving the attribute's history.
+   */
+  def set(attr: Attribute): Metadata  = drop(attr) mapAttributes (_ :+ attr)
+  def set[A: Key](value: A): Metadata = set(Attribute[A](value))
+
+  def mapAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata = new Metadata(f(attributes))
+
+  def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
+}
+object Metadata extends Metadata(Vector()) {
+  def apply(attributes: Attribute*): Metadata = attributes.foldLeft(this: Metadata)(_ set _)
+}
+
+/** Attribute is a dependently typed key/value pair.
+ */
+trait Attribute extends Any with ShowDirect {
+  type Type
+  def key: Key[Type]
+  def value: Type
+
+  def hasSameKey(that: Attribute)      = this hasKey that.key
+  def hasKey[A](implicit that: Key[A]) = key == that
+
+  def pair = key -> value
+  def to_s = s"$key: $value"
+}
+
+object Attribute {
+  type Of[A] = Attribute { type Type = A }
+
+  def apply[A](value: A)(implicit key: Key[A]): Of[A]    = AttributeOf[A](key, value)
+  def unapply(x: Attribute): Some[(Key[x.Type], x.Type)] = Some(x.pair)
+
+  /** The simple implementation of Attribute, which ties the knot between the
+   *  user-facing type parameter and the type member which couples key and value.
+   */
+  private case class AttributeOf[A](key: Key[A], value: A) extends Attribute with ShowSelf { type Type = A }
+}
+
+/** Key is an attribute key: a Metadata map key which carries
+ *  both the type of the corresponding value, and a value to
+ *  provide when there is no value in the map. This as opposed
+ *  to wrapping everything in sight in Option.
+ */
+final class Key[A](description: String) extends ShowSelf {
+  def to_s = description
 }
