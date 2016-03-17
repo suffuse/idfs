@@ -1,6 +1,6 @@
-package suffuse
+package sfs
 
-package object fs {
+package object fuse {
   type DirectoryFiller   = net.fusejna.DirectoryFiller
   type FileInfo          = net.fusejna.StructFuseFileInfo.FileInfoWrapper
   type FlockCommand      = net.fusejna.FlockCommand

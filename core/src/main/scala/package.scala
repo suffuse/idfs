@@ -4,7 +4,7 @@ import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
 
-package object suffuse {
+package object sfs {
   type Buf     = java.nio.ByteBuffer
   type Try[+A] = scala.util.Try[A]
   type uV      = scala.annotation.unchecked.uncheckedVariance
@@ -22,6 +22,8 @@ package object suffuse {
   def isNotValid()     = -EINVAL
   def notImplemented() = -ENOSYS
   def notSupported()   = notImplemented()
+
+  def empty[A](implicit z: Empty[A]): A = z.emptyValue
 
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //

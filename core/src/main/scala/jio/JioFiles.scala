@@ -1,4 +1,4 @@
-package suffuse
+package sfs
 package jio
 
 import java.nio.{ file => jnf }

@@ -1,4 +1,4 @@
-package suffuse
+package sfs
 
 final case class ExecResult(
   argv: Vector[String],
