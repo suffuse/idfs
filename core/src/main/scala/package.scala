@@ -3,6 +3,7 @@ import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
+import api._
 
 package object sfs {
   type Buf     = java.nio.ByteBuffer

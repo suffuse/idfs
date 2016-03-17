@@ -17,13 +17,8 @@ object Node {
   final val Socket   = NodeType.SOCKET
 }
 
-abstract class FuseFsFull extends net.fusejna.util.FuseFilesystemAdapterFull with FuseFs {
+abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
-  // Otherwise:
-  // [error] /g/idfs/src/main/scala/fs/fusejna.scala:23: class FuseFsFull inherits conflicting members:
-  // [error]   method getOptions in class FuseFilesystemAdapterFull of type ()Array[String]  and
-  // [error]   method getOptions in trait FuseFs of type ()Array[String]
-  override def getOptions() = fuse.defaultOptions
 }
 
 /** Widening access so we don't have to use inheritance everywhere.

@@ -42,7 +42,7 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
   private val untypedMap                         = attributes.foldLeft(Map[Key[_], Any]())(_ + _.pair)
   private def untypedAs[A]()(implicit z: Key[A]) = untypedMap(z).asInstanceOf[A]
 
-  def apply[A: Empty]()(implicit z: Key[A]): A = if (has[A]) untypedAs[A] else Empty[A]
+  def apply[A: Empty]()(implicit z: Key[A]): A = if (has[A]) untypedAs[A] else empty[A]
 
   def isEmpty                                  = untypedMap.isEmpty
   def has[A]()(implicit z: Key[A]): Boolean    = attributes exists (_ hasKey z)
