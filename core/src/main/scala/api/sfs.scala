@@ -17,7 +17,7 @@ trait Filesystem {
 
   /** Some means of performing I/O on a virtualized file.
    */
-  type FileIO
+  type IO
 
   /** There are a number of ways we could arrange the "primitives"
    *  here. The most important thing is to retain the decoupling at
@@ -29,18 +29,18 @@ trait Filesystem {
   def lookup(key: Key): Data
 
   sealed trait Data                              extends AnyRef
-  final case class File(io: FileIO)              extends Data
+  final case class File(io: IO)                  extends Data
   final case class Dir(children: Map[Name, Key]) extends Data
   final case class Link(target: Path)            extends Data
-  final case class Other(todo: Any)              extends Data
+  final case class Other(io: IO)                 extends Data
   final case object None                         extends Data
 }
 
 trait UnixLikeFilesystem extends Filesystem {
   /** These could have stronger types - this is the minimal example.
    */
-  type Path   = String
-  type Name   = String       // assert(name forall (ch != '/'))
-  type Key    = Long         // 64-bit inode
-  type FileIO = Array[Byte]  // for maximum simplicity, but even unix isn't this simple
+  type Path = String
+  type Name = String       // assert(name forall (ch != '/'))
+  type Key  = Long         // 64-bit inode
+  type IO   = Array[Byte]  // for maximum simplicity, but even unix isn't this simple
 }

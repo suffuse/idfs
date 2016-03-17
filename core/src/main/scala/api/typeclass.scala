@@ -6,6 +6,5 @@ trait Empty[+A] {
 }
 
 object Empty {
-  def apply[A](value: A): Empty[A]        = new Empty[A] { def emptyValue = value }
-  def apply[A]()(implicit z: Empty[A]): A = z.emptyValue
+  def apply[A](value: A): Empty[A] = new Empty[A] { def emptyValue = value }
 }

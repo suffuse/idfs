@@ -23,6 +23,8 @@ package object sfs {
   def notImplemented() = -ENOSYS
   def notSupported()   = notImplemented()
 
+  def empty[A](implicit z: Empty[A]): A = z.emptyValue
+
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //
   // 675   octet-stream
