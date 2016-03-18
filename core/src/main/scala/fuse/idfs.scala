@@ -12,16 +12,25 @@ object idfs {
   }
 }
 
-class idfs private (from: Path) extends FuseFsFull {
+/** Reverses file contents. */
+object reversefs {
+  def apply(from: Path): idfs = new idfs(from) { override protected def pathBytes(path: Path) = super.pathBytes(path).reverse }
+  def main(args: Array[String]): Unit = args.toList match {
+    case from :: to :: Nil => apply(path(from)) mountForeground path(to)
+    case _                 => println("Usage: reversefs <from> <to>")
+  }
+}
+
+class idfs (from: Path) extends FuseFsFull {
 
   def getName: String = "idfs"
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    val p = resolvePath(path)
-    val data = p.readAllBytes
+    val p          = resolvePath(path)
+    val data       = pathBytes(p)
     val totalBytes = if (offset + size > data.length) data.length - offset else size
-    effect(totalBytes.toInt)(
-      buf.put(data, offset.toInt, totalBytes.toInt))
+
+    effect(totalBytes.toInt)( buf.put(data, offset.toInt, totalBytes.toInt) )
   }
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
@@ -114,16 +123,17 @@ class idfs private (from: Path) extends FuseFsFull {
   def utimens(path: String, wrapper: TimeBufferWrapper) =
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
 
-  private def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
-  private def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
+  protected def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
+  protected def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
 
-  private def resolvePath(p: String): Path = path(s"$from$p")
-  private def resolveFile(path: String): File = path match {
+  protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
+  protected def resolvePath(p: String): Path = path(s"$from$p")
+  protected def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")
   }
 
-  private def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
+  protected def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
     populateMode(stat, path, nodeType)
     stat size   path.size
     stat atime  (path.atime to SECONDS)
@@ -134,7 +144,7 @@ class idfs private (from: Path) extends FuseFsFull {
     stat gid    getGID // XXX huge hassle.
   }
 
-  private def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
+  protected def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
     val pp = path.permissions
     import pp._
     mode setMode (nodeType,
