@@ -73,8 +73,8 @@ trait Attribute extends Any with ShowDirect {
 object Attribute {
   type Of[A] = Attribute { type Type = A }
 
-  def apply[A](value: A)(implicit key: Key[A]): Of[A]    = AttributeOf[A](key, value)
-  def unapply(x: Attribute): Some[(Key[x.Type], x.Type)] = Some(x.pair)
+  def apply[A](value: A)(implicit key: Key[A]): Of[A] = AttributeOf[A](key, value)
+  def unapply(x: Attribute): Some[x.Type]             = Some(x.value)
 
   /** The simple implementation of Attribute, which ties the knot between the
    *  user-facing type parameter and the type member which couples key and value.

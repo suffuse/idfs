@@ -26,7 +26,7 @@ final class MetadataTests {
     var attrs = Metadata set stamp
     assertEquals(attrs[Mtime], stamp)
 
-    attrs = attrs mapOnly { case Attribute(_, n: Mtime) => Attribute(n + 1.day) }
+    attrs = attrs mapOnly { case Attribute(n: Mtime) => Attribute(n + 1.day) }
     assertEquals(attrs[Mtime].timestamp, stamp.timestamp + 1.day.toSeconds)
 
     attrs = attrs set Size(10000L) set Mtime(789L)
