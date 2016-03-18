@@ -2,6 +2,7 @@ package sfs
 package fuse
 
 import jio._
+import java.util.concurrent.TimeUnit.SECONDS
 
 object idfs {
   def apply(from: Path): idfs = new idfs(from)
@@ -11,16 +12,25 @@ object idfs {
   }
 }
 
-class idfs private (from: Path) extends FuseFsFull {
+/** Reverses file contents. */
+object reversefs {
+  def apply(from: Path): idfs = new idfs(from) { override protected def pathBytes(path: Path) = super.pathBytes(path).reverse }
+  def main(args: Array[String]): Unit = args.toList match {
+    case from :: to :: Nil => apply(path(from)) mountForeground path(to)
+    case _                 => println("Usage: reversefs <from> <to>")
+  }
+}
+
+class idfs (from: Path) extends FuseFsFull {
 
   def getName: String = "idfs"
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    val p = resolvePath(path)
-    val data = p.allBytes
+    val p          = resolvePath(path)
+    val data       = pathBytes(p)
     val totalBytes = if (offset + size > data.length) data.length - offset else size
-    effect(totalBytes.toInt)(
-      buf.put(data, offset.toInt, totalBytes.toInt))
+
+    effect(totalBytes.toInt)( buf.put(data, offset.toInt, totalBytes.toInt) )
   }
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
@@ -46,9 +56,9 @@ class idfs private (from: Path) extends FuseFsFull {
 
   def readlink(path: String, buf: ByteBuffer, size: Long): Int =
     resolvePath(path) match {
-      case p if !p.exists         => doesNotExist()
-      case p if !p.isSymbolicLink => isNotValid()
-      case p                      => effect(eok)(buf put (p.readlink.to_s getBytes jio.UTF8))
+      case p if !p.nofollow.exists => doesNotExist()
+      case p if !p.isSymbolicLink  => isNotValid()
+      case p                       => effect(eok)(buf put (p.readlink.to_s getBytes jio.UTF8))
     }
 
   def create(path: String, mode: ModeInfo, info: FileInfo): Int = {
@@ -64,16 +74,16 @@ class idfs private (from: Path) extends FuseFsFull {
 
   def mkdir(path: String, mode: ModeInfo): Int =
     resolvePath(path) match {
-      case f if f.exists => alreadyExists()
-      case f             => effect(eok)(f.mkdir(mode.mode))
+      case f if f.nofollow.exists => alreadyExists()
+      case f                      => effect(eok)(f.mkdir(mode.mode))
     }
 
   def getattr(path: String, stat: StatInfo): Int =
     resolvePath(path) match {
-      case f if f.isFile         => effect(eok)(populateStat(stat, f, Node.File))
-      case d if d.isDirectory    => effect(eok)(populateStat(stat, d, Node.Dir))
-      case l if l.isSymbolicLink => effect(eok)(populateStat(stat, l, Node.Link))
-      case _                     => doesNotExist()
+      case f if f.isFile               => effect(eok)(populateStat(stat, f, Node.File))
+      case d if d.nofollow.isDirectory => effect(eok)(populateStat(stat, d, Node.Dir))
+      case l if l.isSymbolicLink       => effect(eok)(populateStat(stat, l, Node.Link))
+      case _                           => doesNotExist()
     }
 
   def rename(from: String, to: String): Int =
@@ -82,21 +92,23 @@ class idfs private (from: Path) extends FuseFsFull {
   def rmdir(path: String): Int =
     tryFuse {
       resolvePath(path) match {
-        case d if d.isDirectory => effect(eok)(d.delete())
-        case _                  => doesNotExist()
+        case d if d.nofollow.isDirectory => effect(eok)(d.delete())
+        case _                           => doesNotExist()
       }
     }
 
   def unlink(path: String): Int =
     resolvePath(path) match {
-      case f if f.exists => effect(eok)(f.delete())
-      case _             => doesNotExist()
+      case f if f.nofollow.exists => effect(eok)(f.delete())
+      case _                      => doesNotExist()
     }
 
+  // p.follow, because symbolic links don't have meaningful permissions
+  // chmod calls to a link are applied to the link target.
   def chmod(path: String, mode: ModeInfo): Int =
     resolvePath(path) match {
-      case p if p.exists => effect(eok)(p.setPermissions(mode.mode))
-      case _             => doesNotExist()
+      case p if p.follow.exists => effect(eok)(p.setPermissions(mode.mode))
+      case _                    => doesNotExist()
     }
 
   def symlink(target: String, linkName: String): Int =
@@ -111,26 +123,28 @@ class idfs private (from: Path) extends FuseFsFull {
   def utimens(path: String, wrapper: TimeBufferWrapper) =
     tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
 
-  private def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
-  private def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
-  private def resolvePath(p: String): Path = path(s"$from$p")
-  private def resolveFile(path: String): File = path match {
+  protected def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
+  protected def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
+
+  protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
+  protected def resolvePath(p: String): Path = path(s"$from$p")
+  protected def resolveFile(path: String): File = path match {
     case "/" => from.toFile
     case _   => new File(from.toFile, path stripSuffix "/")
   }
 
-  private def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
+  protected def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
     populateMode(stat, path, nodeType)
     stat size   path.size
-    stat atime  path.atime
-    stat mtime  path.mtime
+    stat atime  (path.atime to SECONDS)
+    stat mtime  (path.mtime to SECONDS)
     stat blocks path.blockCount
     stat nlink  1
-    stat uid    getUID
-    stat gid    getGID
+    stat uid    path.uid
+    stat gid    getGID // XXX huge hassle.
   }
 
-  private def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
+  protected def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
     val pp = path.permissions
     import pp._
     mode setMode (nodeType,
