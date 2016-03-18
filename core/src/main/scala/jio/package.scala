@@ -12,7 +12,7 @@ import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 import api._
 
-package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
+package object jio extends DecorateAsScala with DecorateAsJava {
   val UTF8          = java.nio.charset.Charset forName "UTF-8"
   val UnixUserClass = Class.forName("sun.nio.fs.UnixUserPrincipals$User")
   val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
@@ -86,9 +86,9 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def /(name: String): Rep      = asRep(path resolve name)
 
     def ls: Vector[Rep]           = if (path.nofollow.isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
-    def mkdir(bits: Long): Rep    = asRep(createDirectory(path, asFileAttribute(bitsAsPermissions(bits))))
-    def mkfile(bits: Long): Rep   = asRep(createFile(path, asFileAttribute(bitsAsPermissions(bits))))
-    def mklink(target: Path): Rep = asRep(createSymbolicLink(path, target))
+    def mkdir(bits: Long): Rep    = asRep(path createDirectory asFileAttribute(bitsAsPermissions(bits)))
+    def mkfile(bits: Long): Rep   = asRep(path createFile asFileAttribute(bitsAsPermissions(bits)))
+    def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
     def readlink: Rep             = asRep(path.readSymbolicLink)
 
     def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
