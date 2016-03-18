@@ -2,9 +2,10 @@ package sfs
 package api
 
 trait Api {
-  type Buf     = java.nio.ByteBuffer
-  type Try[+A] = scala.util.Try[A]
-  type uV      = scala.annotation.unchecked.uncheckedVariance
+  type Buf         = java.nio.ByteBuffer
+  type Try[+A]     = scala.util.Try[A]
+  type uV          = scala.annotation.unchecked.uncheckedVariance
+  type =?>[-A, +B] = scala.PartialFunction[A, B]
 
   def andTrue(x: Unit): Boolean         = true
   def doto[A](x: A)(f: A => Unit): A    = { f(x) ; x }
