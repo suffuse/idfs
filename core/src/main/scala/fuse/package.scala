@@ -4,6 +4,9 @@ import net.fusejna.ErrorCodes._
 
 package object fuse {
 
+  // marker interface
+  sealed trait Fuse
+
   def alreadyExists()  = -EEXIST
   def doesNotExist()   = -ENOENT
   def eok()            = 0
@@ -66,9 +69,6 @@ package object fuse {
   val Dir  = new NodeType("dir" )
   val Link = new NodeType("link")
   implicit val _nodeType = new api.Key[NodeType]("type of node")
-
-  case class LinkTarget(to: String)
-  implicit val _linkTarget = new api.Key[LinkTarget]("link target")
 
   sealed trait Result[+A] {
 

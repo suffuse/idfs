@@ -38,24 +38,26 @@ object Example {
 /** A Metadata map, holding any number of well typed Attributes.
  *  A typed value can be obtained for any key.
  */
-sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
+sealed class Metadata[+Z](val attributes: Vector[Attribute]) extends ShowSelf { md =>
+
   private val untypedMap                         = attributes.foldLeft(Map[Key[_], Any]())(_ + _.pair)
   private def untypedAs[A]()(implicit z: Key[A]) = untypedMap(z).asInstanceOf[A]
 
   def apply[A: Empty]()(implicit z: Key[A]): A = fold(ifValue = identity[A], orElse = empty[A])
 
   def isEmpty                                  = untypedMap.isEmpty
+  def has[A: Key](a: A):Boolean                = fold[A](ifValue = _ == a, orElse = false)
   def has[A]()(implicit z: Key[A]): Boolean    = attributes exists (_ hasKey z)
   def keys: Vector[Key[_]]                     = attributes map (_.key)
 
-  def drop(attr: Attribute): Metadata          = drop()(attr.key)
-  def drop[A]()(implicit z: Key[A]): Metadata  = if (has[A]) mapAttributes(_ filterNot (_ hasKey z)) else this
+  def drop(attr: Attribute): Metadata[Z]          = drop()(attr.key)
+  def drop[A]()(implicit z: Key[A]): Metadata[Z]  = if (has[A]) mapAttributes(_ filterNot (_ hasKey z)) else this
 
   /** Set could also hold onto the old value, and just return the last one.
    *  It would amount to preserving the attribute's history.
    */
-  def set(attr: Attribute): Metadata  = drop(attr) mapAttributes (_ :+ attr)
-  def set[A: Key](value: A): Metadata = set(Attribute[A](value))
+  def set(attr: Attribute): Metadata[Z]  = drop(attr) mapAttributes (_ :+ attr)
+  def set[A: Key](value: A): Metadata[Z] = set(Attribute[A](value))
 
   def fold[A]: Fold[A] = new Fold[A]
   class Fold[A] {
@@ -65,12 +67,12 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
 
   def foreach[A: Key](f: A => Unit): Unit = fold[A](f, unit)
 
-  def mapAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata = new Metadata(f(attributes))
+  def mapAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata[Z] = new api.Metadata[Z](f(attributes))
 
   def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
 }
 object Metadata extends Metadata(Vector()) {
-  def apply(attributes: Attribute*): Metadata = attributes.foldLeft(this: Metadata)(_ set _)
+  def apply[Z](attributes: Attribute*): Metadata[Z] = attributes.foldLeft(this: Metadata[Z])(_ set _)
 }
 
 /** Attribute is a dependently typed key/value pair.

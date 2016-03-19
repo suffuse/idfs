@@ -22,7 +22,7 @@ trait FuseFs extends FuseFilesystem {
     else
       exec("fusermount", "-u", getMountPoint.getPath)
   )
-  private def doMount(mountPoint: jio.File, blocking: Boolean): this.type = {
+  private def doMount(mountPoint: java.io.File, blocking: Boolean): this.type = {
     addUnmountHook(this)
     super.mount(mountPoint, blocking)
     this
@@ -42,8 +42,8 @@ abstract class ForwarderFs extends FuseFs {
   protected def underlying: FuseFilesystem
 
   /** The non-path methods. */
-  def afterUnmount(mountPoint: jio.File): Unit = underlying.afterUnmount(mountPoint)
-  def beforeMount(mountPoint: jio.File): Unit  = underlying.beforeMount(mountPoint)
+  def afterUnmount(mountPoint: java.io.File): Unit = underlying.afterUnmount(mountPoint)
+  def beforeMount(mountPoint: java.io.File): Unit  = underlying.beforeMount(mountPoint)
   def destroy(): Unit                      = underlying.destroy()
   def getName(): String                    = getClass.getName
   def init(): Unit                         = underlying.init()

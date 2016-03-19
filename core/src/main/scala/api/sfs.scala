@@ -2,6 +2,8 @@ package sfs
 package api
 
 trait Filesystem {
+  type Metadata
+
   type M[A]
 
   /** A Path is a serialization of the steps one must take from

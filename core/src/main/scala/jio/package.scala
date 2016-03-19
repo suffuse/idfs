@@ -25,27 +25,22 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     }
   }
 
-  implicit class FileOps(val f: File) extends Pathish[File] {
-    def path: Path     = f.toPath
-    def asRep(p: Path) = p.toFile
-
-    def appending[A](g: FileOutputStream => A): A = {
-      val stream = new FileOutputStream(f, true) // append = true
-      try g(stream) finally stream.close()
-    }
-  }
+//  implicit class FileOps(val f: File) extends Pathish[File] {
+//    def path: Path     = f.toPath
+//    def asRep(p: Path) = p.toFile
+//
+//    def appending[A](g: FileOutputStream => A): A = {
+//      val stream = new FileOutputStream(f, true) // append = true
+//      try g(stream) finally stream.close()
+//    }
+//  }
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p
 
-    def permissions: PosixFilePermissions = {
-      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
-      import jnfa.PosixFilePermission._
-      PosixFilePermissions(
-        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
-        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
-        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
-      )
-    }
+    def metadata: Metadata[Java] = ???
+
+    def permissions: Set[jnfa.PosixFilePermission] =
+      (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala.toSet
 
     def setPermissions(bits: Long): Unit =
       Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
@@ -75,13 +70,16 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     }
   }
 
+  // marker interface
+  sealed trait Java
+
   trait Pathish[Rep] {
     def path: Path
     def asRep(p: Path): Rep
 
     def /(name: String): Rep      = asRep(path resolve name)
-    def mkdir(bits: Long): Rep    = asRep(createDirectory(path, asFileAttribute(bitsAsPermissions(bits))))
-    def mkfile(bits: Long): Rep   = asRep(createFile(path, asFileAttribute(bitsAsPermissions(bits))))
+    def mkdir(metadata: Metadata[Java]): Rep    = asRep(createDirectory(path, asFileAttribute(metadataAsPermissions(metadata))))
+    def mkfile(metadata: Metadata[Java]): Rep   = asRep(createFile(path, asFileAttribute(metadataAsPermissions(metadata))))
     def mklink(target: Path): Rep = asRep(createSymbolicLink(path, target))
 
     private def withDirStream[A](dir: Path)(code: jStream[Path] => A): A =
@@ -119,10 +117,11 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
   )
 
-  def file(s: String, ss: String*): File   = ss.foldLeft(new File(s))(new File(_, _))
+  //def file(s: String, ss: String*): File   = ss.foldLeft(new File(s))(new File(_, _))
   def toPath(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
   def homeDir: Path                        = toPath(sys.props("user.home"))
 
+  def metadataAsPermissions(metadata: Metadata[Java]) = ???
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._
     val permissionBits = Set(
@@ -144,6 +143,22 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
       }
     permissions.asJava
   }
+
+  final class NodeType(`type`: String) extends api.ShowSelf {
+
+    def asJava = ???
+
+    def to_s = `type`
+  }
+  object NodeType {
+
+    def fromJava: Nothing => NodeType = ???
+  }
+
+  val File = new NodeType("file")
+  val Dir  = new NodeType("dir" )
+  val Link = new NodeType("link")
+  implicit val _nodeType = new api.Key[NodeType]("type of node")
 
   type jArray[A]        = Array[A with Object]
   type jClass           = java.lang.Class[_]
@@ -186,7 +201,7 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   type ByteArrayInputStream = java.io.ByteArrayInputStream
   type ByteBuffer           = java.nio.ByteBuffer
   type Charset              = java.nio.charset.Charset
-  type File                 = java.io.File
+  //type File                 = java.io.File
   type FileChannel          = jnc.FileChannel
   type FileInputStream      = java.io.FileInputStream
   type FileOutputStream     = java.io.FileOutputStream

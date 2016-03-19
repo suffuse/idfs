@@ -12,6 +12,7 @@ object idfs {
 }
 
 class idfs private (fs: api.Filesystem {
+  type Metadata = api.Metadata[Fuse]
   type M[A] = Result[A]
   type Path = String
   type Name = String
@@ -126,9 +127,8 @@ class idfs private (fs: api.Filesystem {
 
   def symlink(target: String, linkName: String): Int = {
     for {
-      key      <- fs resolve linkName
-      metadata <- fs metadataFor key
-      _        <- fs update (key, metadata set LinkTarget(target))
+      key      <- fs resolve target
+      _        <- fs bind (linkName -> key)
     } yield eok
   }.toInt
 
@@ -164,7 +164,7 @@ class idfs private (fs: api.Filesystem {
 
   private def nullBytes(amount: Long): Array[Byte] = Array.fill(amount.toInt)(0.toByte)
 
-  private def populateStat(stat: StatInfo, metadata: api.Metadata): Result[Unit] = {
+  private def populateStat(stat: StatInfo, metadata: fs.Metadata): Result[Unit] = {
     for {
       _ <- populateMode(stat, metadata)
     } yield {
@@ -178,7 +178,7 @@ class idfs private (fs: api.Filesystem {
     }
   }
 
-  private def populateMode(mode: IModeInfo, metadata: api.Metadata): Result[Unit] = {
+  private def populateMode(mode: IModeInfo, metadata: fs.Metadata): Result[Unit] = {
     for {
       nodeType    <- metadata fold[NodeType] (ifValue = Success(_), orElse = DoesNotExist)
       permissions =  metadata[Permissions]
