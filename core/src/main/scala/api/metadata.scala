@@ -1,29 +1,6 @@
 package sfs
 package api
 
-object Example {
-  final case class Mtime(timestamp: Long)
-  final case class Atime(timestamp: Long)
-  final case class Size(bytes: Long)
-
-  // Using these explicitly should be discouraged, this can be a convention rather than an enforcement
-  implicit val mtime = new Key[Mtime]("modification time")
-  implicit val atime = new Key[Atime]("access time")
-  implicit val size  = new Key[Size]("size in bytes")
-
-  implicit def emptySize: Empty[Size] = Empty(Size(-1L))
-
-  def main(args: Array[String]): Unit = {
-    var attrs = Metadata set Mtime(123L)
-    println("Size is " + attrs[Size])
-    attrs = attrs set Size(456L)
-    println(attrs)
-    attrs = attrs set Size(10000L) set Atime(789)
-    println(attrs)
-    println("Size is " + attrs[Size])
-  }
-}
-
 /*
  * Conventions:
  *
@@ -39,8 +16,12 @@ object Example {
  *  A typed value can be obtained for any key.
  */
 sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
+  md =>
+
   private val untypedMap                         = attributes.foldLeft(Map[Key[_], Any]())(_ + _.pair)
   private def untypedAs[A]()(implicit z: Key[A]) = untypedMap(z).asInstanceOf[A]
+
+  def transformAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata = new Metadata(f(attributes))
 
   def apply[A: Empty]()(implicit z: Key[A]): A = if (has[A]) untypedAs[A] else empty[A]
 
@@ -49,15 +30,25 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
   def keys: Vector[Key[_]]                     = attributes map (_.key)
 
   def drop(attr: Attribute): Metadata          = drop()(attr.key)
-  def drop[A]()(implicit z: Key[A]): Metadata  = if (has[A]) mapAttributes(_ filterNot (_ hasKey z)) else this
+  def drop[A]()(implicit z: Key[A]): Metadata  = if (has[A]) transformAttributes(_ filterNot (_ hasKey z)) else this
 
   /** Set could also hold onto the old value, and just return the last one.
    *  It would amount to preserving the attribute's history.
    */
-  def set(attr: Attribute): Metadata  = drop(attr) mapAttributes (_ :+ attr)
+  def set(attr: Attribute): Metadata  = drop(attr) transformAttributes (_ :+ attr)
   def set[A: Key](value: A): Metadata = set(Attribute[A](value))
 
-  def mapAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata = new Metadata(f(attributes))
+  def only[A : Key : Empty] = new Only[A]
+  class Only[A : Key : Empty] {
+    def map(f: A => A): Metadata             = md set f(apply[A])
+    def flatMap(f: A => Option[A]): Metadata = f(md[A]()).fold(md)(md set _)
+    def filter(p: A => Boolean): Metadata    = if (has[A] && !p(md[A])) md.drop[A] else md
+  }
+
+  def mapOnly(pf: Attribute =?> Attribute): Metadata = map(x => if (pf isDefinedAt x) pf(x) else x)
+  def map(f: Attribute => Attribute): Metadata       = transformAttributes(_ map f)
+  def flatMap(f: Attribute => Metadata): Metadata    = transformAttributes(_ flatMap (x => f(x).attributes))
+  def filter(p: Attribute => Boolean): Metadata      = transformAttributes(_ filter p)
 
   def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
 }
@@ -82,8 +73,8 @@ trait Attribute extends Any with ShowDirect {
 object Attribute {
   type Of[A] = Attribute { type Type = A }
 
-  def apply[A](value: A)(implicit key: Key[A]): Of[A]    = AttributeOf[A](key, value)
-  def unapply(x: Attribute): Some[(Key[x.Type], x.Type)] = Some(x.pair)
+  def apply[A](value: A)(implicit key: Key[A]): Of[A] = AttributeOf[A](key, value)
+  def unapply(x: Attribute): Some[x.Type]             = Some(x.value)
 
   /** The simple implementation of Attribute, which ties the knot between the
    *  user-facing type parameter and the type member which couples key and value.
