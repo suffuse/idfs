@@ -23,7 +23,7 @@ package object fuse {
     scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
 
   // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
-  def defaultOptions = Array("-o", "direct_io,default_permissions")
+  def defaultOptions: Vector[String] = Vector("-o", "direct_io,default_permissions")
 
   implicit class FuseFilesystemOps(val fs: FuseFilesystem) {
     def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)

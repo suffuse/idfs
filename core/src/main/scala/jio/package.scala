@@ -12,10 +12,15 @@ import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 import api._
 
-package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
-  val UTF8 = java.nio.charset.Charset forName "UTF-8"
+package object jio extends DecorateAsScala with DecorateAsJava {
+  val UTF8          = java.nio.charset.Charset forName "UTF-8"
+  val UnixUserClass = Class.forName("sun.nio.fs.UnixUserPrincipals$User")
+  val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
 
   def jList[A](xs: A*): jList[A] = doto(new java.util.ArrayList[A])(xs foreach _.add)
+  def jSet[A](xs: A*): jSet[A]   = doto(new java.util.HashSet[A])(xs foreach _.add)
+
+  implicit class JioFilesInstanceOps(path: Path) extends JioFilesInstance(path)
 
   implicit class StreamOps[A](val xs: jStream[A]) extends AnyVal {
     def toVector: Vector[A] = {
@@ -23,6 +28,10 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
       xs.iterator.asScala foreach (x => buf += x)
       buf.result
     }
+  }
+
+  implicit class ClassOps[A](val c: Class[A]) {
+    def shortName: String = (c.getName.stripSuffix("$") split "[.]").last split "[$]" last
   }
 
   implicit class FileOps(val f: File) extends Pathish[File] {
@@ -80,37 +89,42 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     def asRep(p: Path): Rep
 
     def /(name: String): Rep      = asRep(path resolve name)
-    def mkdir(bits: Long): Rep    = asRep(createDirectory(path, asFileAttribute(bitsAsPermissions(bits))))
-    def mkfile(bits: Long): Rep   = asRep(createFile(path, asFileAttribute(bitsAsPermissions(bits))))
-    def mklink(target: Path): Rep = asRep(createSymbolicLink(path, target))
+
+    def ls: Vector[Rep]           = if (path.nofollow.isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
+    def mkdir(bits: Long): Rep    = asRep(path createDirectory asFileAttribute(bitsAsPermissions(bits)))
+    def mkfile(bits: Long): Rep   = asRep(path createFile asFileAttribute(bitsAsPermissions(bits)))
+    def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
+    def readlink: Rep             = asRep(path.readSymbolicLink)
+
+    def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
+    def gid: Int                         = 0 // OMG what a hassle.
+    def atime: FileTime                  = basicAttributes.lastAccessTime
+    def ctime: FileTime                  = basicAttributes.creationTime
+    def group: GroupPrincipal            = posixAttributes.group
+    def inum: Object                     = basicAttributes.fileKey
+    def mtime: FileTime                  = basicAttributes.lastModifiedTime
+    def owner: UserPrincipal             = posixAttributes.owner
+    def perms: jSet[PosixFilePermission] = posixAttributes.permissions
+
+    def isDir: Boolean   = path.nofollow.isDirectory
+    def isFile: Boolean  = path.nofollow.isRegularFile
+    def isLink: Boolean  = path.isSymbolicLink
+    def isOther: Boolean = basicAttributes.isOther
 
     private def withDirStream[A](dir: Path)(code: jStream[Path] => A): A =
       (Files list dir) |> (str => try code(str) finally str.close())
 
-    /** Some consistent naming scheme for various operations would be a boon.
-     *    isdir isfile islink?
-     *    readdir readfile readlink?
-     */
+    def attributes[A <: BasicFileAttributes : CTag](): Try[A] = Try(path.nofollow readAttributes classOf[A])
+    def posixAttributes: PosixFileAttributes                  = attributes[PosixFileAttributes] | ??? // FIXME
+    def basicAttributes: BasicFileAttributes                  = attributes[BasicFileAttributes] | ??? // FIXME
 
-    def allBytes: Array[Byte]           = Files readAllBytes path
-    def atime: Long                     = attributes.lastAccessTime.toMillis
-    def attributes: BasicFileAttributes = Files readAttributes(path, classOf[BasicFileAttributes], NOFOLLOW_LINKS)
-    def blockCount: Long                = (attributes.size + blockSize - 1) / blockSize
-    def blockSize: Long                 = 512 // FIXME
-    def delete(): Unit                  = Files delete path
-    def depth: Int                      = path.getNameCount
-    def exists: Boolean                 = Files.exists(path, NOFOLLOW_LINKS)
-    def filename: String                = path.getFileName.to_s
-    def isDirectory: Boolean            = Files.isDirectory(path, NOFOLLOW_LINKS)
-    def isFile: Boolean                 = Files.isRegularFile(path, NOFOLLOW_LINKS)
-    def isSymbolicLink: Boolean         = Files isSymbolicLink path
-    def ls: Vector[Rep]                 = if (isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
-    def mediaType: MediaType            = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
-    def mtime: Long                     = attributes.lastModifiedTime.toMillis
-    def readlink: Rep                   = asRep(Files readSymbolicLink path)
-    def size: Long                      = attributes.size
-    def to_s: String                    = path.toString
-    def moveTo(target: Path)            = Files.move(path, target)
+    def blockCount: Long     = (path.size + blockSize - 1) / blockSize
+    def blockSize: Long      = 512 // FIXME
+    def depth: Int           = path.getNameCount
+    def filename: String     = path.getFileName.to_s
+    def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
+    def moveTo(target: Path) = path.nofollow move target
+    def to_s: String         = path.toString
   }
 
   case class PosixFilePermissions(
@@ -119,9 +133,10 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
   )
 
-  def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
-  def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
-  def homeDir: Path                      = path(sys.props("user.home"))
+  def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
+  def path(s: String, ss: String*): Path        = ss.foldLeft(jnf.Paths get s)(_ resolve _)
+  def homeDir: Path                             = path(sys.props("user.home"))
+  def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
 
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._
@@ -172,13 +187,15 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
   type Path               = jnf.Path
   type PathDirStream      = jnf.DirectoryStream[Path]
 
-  type BasicFileAttributes  = jnfa.BasicFileAttributes
-  type AnyFileAttr          = jnfa.FileAttribute[_]
-  type FileAttributeView    = jnfa.FileAttributeView
-  type FileAttribute[A]     = jnfa.FileAttribute[A]
-  type FileTime             = jnfa.FileTime
-  type PosixFilePermission  = jnfa.PosixFilePermission
-  type UserPrincipal        = jnfa.UserPrincipal
+  type AnyFileAttr         = jnfa.FileAttribute[_]
+  type BasicFileAttributes = jnfa.BasicFileAttributes
+  type FileAttributeView   = jnfa.FileAttributeView
+  type FileAttribute[A]    = jnfa.FileAttribute[A]
+  type FileTime            = jnfa.FileTime
+  type GroupPrincipal      = jnfa.GroupPrincipal
+  type PosixFileAttributes = jnfa.PosixFileAttributes
+  type PosixFilePermission = jnfa.PosixFilePermission
+  type UserPrincipal       = jnfa.UserPrincipal
 
   type BufferedInputStream  = java.io.BufferedInputStream
   type BufferedReader       = java.io.BufferedReader

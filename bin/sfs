@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#
+
+if [[ $# -eq 0 ]]; then
+  echo "Usage: sfs <idfs|filterfs|reversefs> <args>"
+  exit 1
+fi
+
+fs="$1" && shift
+sbt "runMain sfs.fuse.$fs $*"
