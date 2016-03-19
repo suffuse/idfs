@@ -4,6 +4,7 @@ package jio
 import java.nio.{ file => jnf }
 import jnf.{ Files => F }
 import jnf.LinkOption.NOFOLLOW_LINKS
+import jnf.FileVisitOption.FOLLOW_LINKS
 
 // LinkOption <: ( CopyOption, OpenOption )
 //
@@ -36,6 +37,9 @@ class JioFollow(path: Path) {
   def newOutputStream(options: OpenOption*): OutputStream                                      = F.newOutputStream(path, mustFollow(options): _*)
   def write(bytes: Array[Byte], options: OpenOption*): Path                                    = F.write(path, bytes, mustFollow(options): _*)
   def write(lines: jLineIterable, cs: Charset, options: OpenOption*): Path                     = F.write(path, lines, cs, mustFollow(options): _*)
+
+  def walkFileTree[A >: Path](maxDepth: Int, visitor: FileVisitor[A]): Path =
+    F.walkFileTree(path, jSet(FOLLOW_LINKS), maxDepth, visitor)
 }
 
 class JioNoFollow(path: Path) {
@@ -64,6 +68,9 @@ class JioNoFollow(path: Path) {
   def newOutputStream(options: OpenOption*): OutputStream                                      = F.newOutputStream(path, NOFOLLOW_LINKS +: options: _*)
   def write(bytes: Array[Byte], options: OpenOption*): Path                                    = F.write(path, bytes, NOFOLLOW_LINKS +: options: _*)
   def write(lines: jLineIterable, cs: Charset, options: OpenOption*): Path                     = F.write(path, lines, cs, NOFOLLOW_LINKS +: options: _*)
+
+  def walkFileTree[A >: Path](maxDepth: Int, visitor: FileVisitor[A]): Path =
+    F.walkFileTree(path, jSet(), maxDepth, visitor)
 }
 
 class JioFilesInstance(path: Path) {
@@ -77,29 +84,28 @@ class JioFilesInstance(path: Path) {
   def createTempDirectory(prefix: String, attrs: AnyFileAttr*): Path            = F.createTempDirectory(path, prefix, attrs: _*)
   def createTempFile(prefix: String, suffix: String, attrs: AnyFileAttr*): Path = F.createTempFile(path, prefix, suffix, attrs: _*)
 
-  def copy(out: OutputStream): Long                                                                      = F.copy(path, out)
-  def createLink(existing: Path): Path                                                                   = F.createLink(path, existing)
-  def delete(): Unit                                                                                     = F.delete(path)
-  def deleteIfExists(): Boolean                                                                          = F.deleteIfExists(path)
-  def getFileStore(): FileStore                                                                          = F.getFileStore(path)
-  def isExecutable(): Boolean                                                                            = F.isExecutable(path)
-  def isHidden(): Boolean                                                                                = F.isHidden(path)
-  def isReadable(): Boolean                                                                              = F.isReadable(path)
-  def isSameFile(path2: Path): Boolean                                                                   = F.isSameFile(path, path2)
-  def isSymbolicLink(): Boolean                                                                          = F.isSymbolicLink(path)
-  def isWritable(): Boolean                                                                              = F.isWritable(path)
-  def newBufferedReader(cs: Charset): BufferedReader                                                     = F.newBufferedReader(path, cs)
-  def newDirectoryStream(): PathDirStream                                                                = F.newDirectoryStream(path)
-  def newDirectoryStream(filter: DirStreamFilter[_ >: Path]): PathDirStream                              = F.newDirectoryStream(path, filter)
-  def newDirectoryStream(glob: String): PathDirStream                                                    = F.newDirectoryStream(path, glob)
-  def probeContentType(): String                                                                         = F.probeContentType(path)
-  def readAllBytes(): Array[Byte]                                                                        = F.readAllBytes(path)
-  def readAllLines(cs: Charset): jList[String]                                                           = F.readAllLines(path, cs)
-  def readSymbolicLink(): Path                                                                           = F.readSymbolicLink(path)
-  def setLastModifiedTime(time: FileTime): Path                                                          = F.setLastModifiedTime(path, time)
-  def setOwner(owner: UserPrincipal): Path                                                               = F.setOwner(path, owner)
-  def setPosixFilePermissions(perms: jFilePermissions): Path                                             = F.setPosixFilePermissions(path, perms)
-  def size(): Long                                                                                       = F.size(path)
-  def walkFileTree(options: jSet[FileVisitOption], maxDepth: Int, visitor: FileVisitor[_ >: Path]): Path = F.walkFileTree(path, options, maxDepth, visitor)
-  def walkFileTree(visitor: FileVisitor[_ >: Path]): Path                                                = F.walkFileTree(path, visitor)
+  def copy(out: OutputStream): Long                                         = F.copy(path, out)
+  def createLink(existing: Path): Path                                      = F.createLink(path, existing)
+  def delete(): Unit                                                        = F.delete(path)
+  def deleteIfExists(): Boolean                                             = F.deleteIfExists(path)
+  def getFileStore(): FileStore                                             = F.getFileStore(path)
+  def isExecutable(): Boolean                                               = F.isExecutable(path)
+  def isHidden(): Boolean                                                   = F.isHidden(path)
+  def isReadable(): Boolean                                                 = F.isReadable(path)
+  def isSameFile(path2: Path): Boolean                                      = F.isSameFile(path, path2)
+  def isSymbolicLink(): Boolean                                             = F.isSymbolicLink(path)
+  def isWritable(): Boolean                                                 = F.isWritable(path)
+  def newBufferedReader(cs: Charset): BufferedReader                        = F.newBufferedReader(path, cs)
+  def newDirectoryStream(): PathDirStream                                   = F.newDirectoryStream(path)
+  def newDirectoryStream(filter: DirStreamFilter[_ >: Path]): PathDirStream = F.newDirectoryStream(path, filter)
+  def newDirectoryStream(glob: String): PathDirStream                       = F.newDirectoryStream(path, glob)
+  def probeContentType(): String                                            = F.probeContentType(path)
+  def readAllBytes(): Array[Byte]                                           = F.readAllBytes(path)
+  def readAllLines(cs: Charset): jList[String]                              = F.readAllLines(path, cs)
+  def readSymbolicLink(): Path                                              = F.readSymbolicLink(path)
+  def setLastModifiedTime(time: FileTime): Path                             = F.setLastModifiedTime(path, time)
+  def setOwner(owner: UserPrincipal): Path                                  = F.setOwner(path, owner)
+  def setPosixFilePermissions(perms: jFilePermissions): Path                = F.setPosixFilePermissions(path, perms)
+  def size(): Long                                                          = F.size(path)
+  def walkFileTree(visitor: FileVisitor[_ >: Path]): Path                   = F.walkFileTree(path, visitor)
 }
