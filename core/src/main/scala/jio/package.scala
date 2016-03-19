@@ -18,6 +18,7 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
 
   def jList[A](xs: A*): jList[A] = doto(new java.util.ArrayList[A])(xs foreach _.add)
+  def jSet[A](xs: A*): jSet[A]   = doto(new java.util.HashSet[A])(xs foreach _.add)
 
   implicit class JioFilesInstanceOps(path: Path) extends JioFilesInstance(path)
 
@@ -122,7 +123,7 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def depth: Int           = path.getNameCount
     def filename: String     = path.getFileName.to_s
     def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
-    def moveTo(target: Path) = path move target
+    def moveTo(target: Path) = path.nofollow move target
     def to_s: String         = path.toString
   }
 
