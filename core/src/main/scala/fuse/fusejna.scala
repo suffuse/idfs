@@ -6,17 +6,6 @@ import jio._
 /** Cleaning up the javacentric fuse-jna types.
  */
 
-object Node {
-  import net.fusejna.types.TypeMode.NodeType
-
-  final val BlockDev = NodeType.BLOCK_DEVICE
-  final val Dir      = NodeType.DIRECTORY
-  final val Fifo     = NodeType.FIFO
-  final val File     = NodeType.FILE
-  final val Link     = NodeType.SYMBOLIC_LINK
-  final val Socket   = NodeType.SOCKET
-}
-
 abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
 }
@@ -33,7 +22,7 @@ trait FuseFs extends FuseFilesystem {
     else
       exec("fusermount", "-u", getMountPoint.getPath)
   )
-  private def doMount(mountPoint: File, blocking: Boolean): this.type = {
+  private def doMount(mountPoint: jio.File, blocking: Boolean): this.type = {
     addUnmountHook(this)
     super.mount(mountPoint, blocking)
     this
@@ -53,8 +42,8 @@ abstract class ForwarderFs extends FuseFs {
   protected def underlying: FuseFilesystem
 
   /** The non-path methods. */
-  def afterUnmount(mountPoint: File): Unit = underlying.afterUnmount(mountPoint)
-  def beforeMount(mountPoint: File): Unit  = underlying.beforeMount(mountPoint)
+  def afterUnmount(mountPoint: jio.File): Unit = underlying.afterUnmount(mountPoint)
+  def beforeMount(mountPoint: jio.File): Unit  = underlying.beforeMount(mountPoint)
   def destroy(): Unit                      = underlying.destroy()
   def getName(): String                    = getClass.getName
   def init(): Unit                         = underlying.init()
@@ -101,7 +90,7 @@ abstract class ForwarderFs extends FuseFs {
 final class DirFiller extends DirectoryFiller {
   private var count = 0
   private val buf = Vector.newBuilder[Path]
-  private def add(s: String): Unit = { buf += path(s) ; count += 1 }
+  private def add(s: String): Unit = { buf += toPath(s) ; count += 1 }
 
   def add(files: jIterable[String]): Boolean = andTrue(files.asScala foreach add)
   def add(files: String*): Boolean           = andTrue(files foreach add)

@@ -2,6 +2,8 @@ package sfs
 package api
 
 trait Filesystem {
+  type M[A]
+
   /** A Path is a serialization of the steps one must take from
    *  the root to a particular node in the tree. A Name is a single
    *  directed edge of the graph.
@@ -17,23 +19,34 @@ trait Filesystem {
 
   /** Some means of performing I/O on a virtualized file.
    */
-  type IO
+  type   IO
 
   /** There are a number of ways we could arrange the "primitives"
    *  here. The most important thing is to retain the decoupling at
    *  abstraction boundaries so that one does not wind up computing
    *  things too eagerly, nor caching data for too long.
    */
-  def resolve(path: Path): Key
-  def metadata(key: Key): Metadata
-  def lookup(key: Key): Data
+  def resolve(path: Path): M[Key]
+  def lookup(key: Key): M[Data]
+  def metadataFor(key: Key): M[Metadata]
+
+  def create(metadata: Metadata): M[Key]
+
+  def update(key: Key, metadata: Metadata): M[Unit]
+
+  def bind  (binding: Path -> Key): M[Unit]
+  def unbind(binding: Path -> Key): M[Unit]
 
   sealed trait Data                              extends AnyRef
   final case class File(io: IO)                  extends Data
   final case class Dir(children: Map[Name, Key]) extends Data
   final case class Link(target: Path)            extends Data
-  final case class Other(io: IO)                 extends Data
-  final case object None                         extends Data
+
+  object Dir { implicit def emptyDir: Empty[Dir] = Empty(Dir(Map.empty)) }
+
+  val isFile: Data =?> Unit = { case File(_) => }
+  val isLink: Data =?> Unit = { case Link(_) => }
+  val isDir : Data =?> Unit = { case Dir (_) => }
 }
 
 trait UnixLikeFilesystem extends Filesystem {

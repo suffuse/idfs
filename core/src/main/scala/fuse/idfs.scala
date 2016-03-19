@@ -4,140 +4,193 @@ package fuse
 import jio._
 
 object idfs {
-  def apply(from: Path): idfs = new idfs(from)
+  def apply(from: Path): idfs = new idfs(???)
   def main(args: Array[String]): Unit = args.toList match {
-    case from :: to :: Nil => idfs(path(from)).logging() mountForeground path(to)
+    case from :: to :: Nil => idfs(toPath(from)).logging() mountForeground toPath(to)
     case _                 => println("Usage: idfs <from> <to>")
   }
 }
 
-class idfs private (from: Path) extends FuseFsFull {
+class idfs private (fs: api.Filesystem {
+  type M[A] = Result[A]
+  type Path = String
+  type Name = String
+  type IO   = FuseIO
+}) extends FuseFsFull {
 
   def getName: String = "idfs"
 
+
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    val p = resolvePath(path)
-    val data = p.allBytes
-    val totalBytes = if (offset + size > data.length) data.length - offset else size
-    effect(totalBytes.toInt)(
-      buf.put(data, offset.toInt, totalBytes.toInt))
-  }
+    for {
+      key         <- fs resolve path
+      fs.File(io) <- fs lookup key
+      data        <- io.read
+      totalBytes  =  if (offset + size > data.length) data.length - offset else size
+      _           =  buf.put(data, offset.toInt, totalBytes.toInt)
+    } yield totalBytes.toInt
+  }.toInt
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    def impl(): Unit = {
-      val arr = new Array[Byte](size.toInt)
-      buf get arr
-      val f = resolveFile(path)
-      f appending (_ write arr)
-    }
-    Try(impl) fold (_ => -1, _ => size.toInt)
-  }
+    for {
+      key         <- fs resolve path
+      fs.File(io) <- fs lookup key
+      data        =  new Array[Byte](size.toInt)
+      _           =  buf get data
+      _           <- io.write(offset, data)
+    } yield size.toInt
+  }.toInt
 
-  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =
-    tryFuse { resolvePath(path).tryLock() }
+  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int = {
+    for {
+      key         <- fs resolve path
+      fs.File(io) <- fs lookup key
+      _           <- io.lock()
+    } yield eok
+  }.toInt
 
-  def readdir(path: String, filler: DirectoryFiller): Int =
-    effect(eok) {
-      resolveFile(path) match {
-        case d if d.isDirectory => d.listFiles foreach (filler add _.toString)
-        case _                  =>
-      }
-    }
+  def readdir(path: String, filler: DirectoryFiller): Int = {
+    for {
+      key              <- fs resolve path
+      fs.Dir(children) <- fs lookup key ensure fs.isDir orElseUse empty[fs.Dir]
+      _                =  children.keys foreach (child => filler add (path + "/" + child))
+    } yield eok
+  }.toInt
 
-  def readlink(path: String, buf: ByteBuffer, size: Long): Int =
-    resolvePath(path) match {
-      case p if !p.exists         => doesNotExist()
-      case p if !p.isSymbolicLink => isNotValid()
-      case p                      => effect(eok)(buf put (p.readlink.to_s getBytes jio.UTF8))
-    }
+  def readlink(path: String, buf: ByteBuffer, size: Long): Int = {
+    for {
+      key             <- fs resolve path
+      fs.Link(target) <- fs lookup key ensure fs.isLink orElse NotValid
+      _               =  buf put (target getBytes UTF8)
+    } yield eok
+  }.toInt
 
   def create(path: String, mode: ModeInfo, info: FileInfo): Int = {
-    import Node._
-    val p = resolvePath(path)
-    mode.`type`() match {
-      case Dir             => tryFuse(p mkdir mode.mode)
-      case File            => tryFuse(p mkfile mode.mode)
-      case Fifo | Socket   => notSupported()
-      case BlockDev | Link => notSupported()
-    }
-  }
+    val m = api.Metadata set (Permissions fromBits mode.mode)
 
-  def mkdir(path: String, mode: ModeInfo): Int =
-    resolvePath(path) match {
-      case f if f.exists => alreadyExists()
-      case f             => effect(eok)(f.mkdir(mode.mode))
-    }
+    for {
+      metadata <-
+        mode.`type`() match {
+          case FuseDir                 => Success(m set Dir )
+          case FuseFile                => Success(m set File)
+          case FuseFifo | FuseSocket   => NotSupported
+          case FuseBlockDev | FuseLink => NotSupported
+        }
+      key     <- fs create metadata
+      _       <- fs bind (path -> key)
+    } yield eok
+  }.toInt
 
-  def getattr(path: String, stat: StatInfo): Int =
-    resolvePath(path) match {
-      case f if f.isFile         => effect(eok)(populateStat(stat, f, Node.File))
-      case d if d.isDirectory    => effect(eok)(populateStat(stat, d, Node.Dir))
-      case l if l.isSymbolicLink => effect(eok)(populateStat(stat, l, Node.Link))
-      case _                     => doesNotExist()
-    }
+  def mkdir(path: String, mode: ModeInfo): Int = {
+    for {
+      _        <- fs resolve path whenSuccessful AlreadyExists
+      metadata =  api.Metadata set (Permissions fromBits mode.mode) set Dir
+      key      <- fs create metadata
+      _        <- fs bind (path -> key)
+    } yield eok
+  }.toInt
 
-  def rename(from: String, to: String): Int =
-    tryFuse { resolvePath(from) moveTo resolvePath(to) }
+  def getattr(path: String, stat: StatInfo): Int = {
+    for {
+      key      <- fs resolve path
+      metadata <- fs metadataFor key
+      _        <- populateStat(stat, metadata)
+    } yield eok
+  }.toInt
+
+  def rename(from: String, to: String): Int = {
+    for {
+      key <- fs resolve from
+      _   <- fs unbind (from -> key)
+      _   <- fs bind   (to   -> key)
+    } yield eok
+  }.toInt
 
   def rmdir(path: String): Int =
-    tryFuse {
-      resolvePath(path) match {
-        case d if d.isDirectory => effect(eok)(d.delete())
-        case _                  => doesNotExist()
-      }
-    }
+    unlink(path)
 
-  def unlink(path: String): Int =
-    resolvePath(path) match {
-      case f if f.exists => effect(eok)(f.delete())
-      case _             => doesNotExist()
-    }
+  def unlink(path: String): Int = {
+    for {
+      key <- fs resolve path
+      _   <- fs unbind (path -> key)
+    } yield eok
+  }.toInt
 
-  def chmod(path: String, mode: ModeInfo): Int =
-    resolvePath(path) match {
-      case p if p.exists => effect(eok)(p.setPermissions(mode.mode))
-      case _             => doesNotExist()
-    }
+  def chmod(path: String, mode: ModeInfo): Int = {
+    for {
+      key      <- fs resolve path
+      metadata <- fs metadataFor key
+      _        <- fs update (key, metadata set (Permissions fromBits mode.mode))
+    } yield eok
+  }.toInt
 
-  def symlink(target: String, linkName: String): Int =
-    tryFuse { resolvePath("/" + linkName) mklink path(target) }
+  def symlink(target: String, linkName: String): Int = {
+    for {
+      key      <- fs resolve linkName
+      metadata <- fs metadataFor key
+      _        <- fs update (key, metadata set LinkTarget(target))
+    } yield eok
+  }.toInt
 
   def link(from: String, to: String): Int =
     notSupported()
 
-  def truncate(path: String, size: Long): Int =
-    tryFuse { effect(eok)(resolvePath(path) truncate size) }
+  def truncate(path: String, size: Long): Int = {
+    for {
+      key         <- fs resolve path
+      fs.File(io) <- fs lookup key
+      metadata    <- fs metadataFor key
+      fileSize    <- metadata fold[Size] (
+                      ifValue = x => Success(x.bytes.toInt),
+                      orElse  = io.read map (_.size)
+                    )
+      _           <-
+             if (fileSize > size) io truncate size
+        else if (fileSize < size) io write (offset = fileSize, data = nullBytes(amount = size - fileSize))
+        else Success(unit)
+    } yield eok
+  }.toInt
 
-  def utimens(path: String, wrapper: TimeBufferWrapper) =
-    tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
+  def utimens(path: String, wrapper: TimeBufferWrapper): Int = {
+    for {
+      key      <- fs resolve path
+      metadata <- fs metadataFor key
+      _        <- fs update (key, metadata set Mtime(wrapper.mod_nsec))
+    } yield eok
+  }.toInt
 
   private def getUID(): Long = if (isMounted) getFuseContext.uid.longValue else 0
   private def getGID(): Long = if (isMounted) getFuseContext.gid.longValue else 0
-  private def resolvePath(p: String): Path = path(s"$from$p")
-  private def resolveFile(path: String): File = path match {
-    case "/" => from.toFile
-    case _   => new File(from.toFile, path stripSuffix "/")
+
+  private def nullBytes(amount: Long): Array[Byte] = Array.fill(amount.toInt)(0.toByte)
+
+  private def populateStat(stat: StatInfo, metadata: api.Metadata): Result[Unit] = {
+    for {
+      _ <- populateMode(stat, metadata)
+    } yield {
+      metadata foreach[Size]       (stat size  _.bytes    )
+      metadata foreach[Atime]      (stat atime _.timestamp)
+      metadata foreach[Mtime]      (stat mtime _.timestamp)
+      metadata foreach[BlockCount] (stat blocks _.amount  )
+      stat nlink  1
+      stat uid    getUID
+      stat gid    getGID
+    }
   }
 
-  private def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
-    populateMode(stat, path, nodeType)
-    stat size   path.size
-    stat atime  path.atime
-    stat mtime  path.mtime
-    stat blocks path.blockCount
-    stat nlink  1
-    stat uid    getUID
-    stat gid    getGID
-  }
+  private def populateMode(mode: IModeInfo, metadata: api.Metadata): Result[Unit] = {
+    for {
+      nodeType    <- metadata fold[NodeType] (ifValue = Success(_), orElse = DoesNotExist)
+      permissions =  metadata[Permissions]
+    } yield {
+      import permissions._
 
-  private def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    mode setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
+      mode setMode (nodeType.asFuse,
+        ownerRead, ownerWrite, ownerExecute,
+        groupRead, groupWrite, groupExecute,
+        otherRead, otherWrite, otherExecute
+      )
+    }
   }
 
   // comments taken from https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html#function-purposes

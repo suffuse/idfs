@@ -119,9 +119,9 @@ package object jio extends JioFiles with DecorateAsScala with DecorateAsJava {
     otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
   )
 
-  def file(s: String, ss: String*): File = ss.foldLeft(new File(s))(new File(_, _))
-  def path(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
-  def homeDir: Path                      = path(sys.props("user.home"))
+  def file(s: String, ss: String*): File   = ss.foldLeft(new File(s))(new File(_, _))
+  def toPath(s: String, ss: String*): Path = ss.foldLeft(jnf.Paths get s)(_ resolve _)
+  def homeDir: Path                        = toPath(sys.props("user.home"))
 
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._
