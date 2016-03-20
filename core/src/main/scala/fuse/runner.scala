@@ -5,7 +5,7 @@ import jio._
 
 object idfs extends FsRunner {
   def runMain = { case Array(from, to) =>
-    start(new Rooted(from) logging, to)
+    start(new Rooted(from).logging, to)
   }
 }
 object filterfs extends FsRunner {
