@@ -39,7 +39,7 @@ trait RootedFs extends FuseFsFull {
 
   protected def fuseContext: FuseContext
   protected def resolvePath(p: String): Path = path(s"$root$p")
-  protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripSuffix "/")
+  protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripPrefix "/")
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     val p          = resolvePath(path)
