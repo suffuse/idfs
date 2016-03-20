@@ -1,20 +1,8 @@
-import java.nio.file._
-import javax.naming.SizeLimitExceededException
-import net.fusejna.ErrorCodes._
 import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
 import sfs.api._
 
 package object sfs extends sfs.api.Api {
-  def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
-
-  def alreadyExists()  = -EEXIST
-  def doesNotExist()   = -ENOENT
-  def eok()            = 0
-  def isMac            = scala.util.Properties.isMac
-  def isNotValid()     = -EINVAL
-  def notImplemented() = -ENOSYS
-  def notSupported()   = notImplemented()
 
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //
@@ -43,20 +31,7 @@ package object sfs extends sfs.api.Api {
 
     @inline def |>[B](f: A => B): B = f(x) // The famed forward pipe.
   }
-  implicit class ThrowableOps(t: Throwable) {
-    println(t)
-    def toErrno: Int = t match {
-      case _: FileAlreadyExistsException    => alreadyExists()
-      case _: NoSuchFileException           => doesNotExist()
-      case _: IllegalArgumentException      => isNotValid()
-      case _: UnsupportedOperationException => notImplemented()
-      case _: DirectoryNotEmptyException    => -ENOTEMPTY
-      case _: SizeLimitExceededException    => -EFBIG
-      case _: AccessDeniedException         => -EACCES
-      case _: jio.IOException               => -EIO
-      case _                                => -EIO
-    }
-  }
+
   implicit class TryOps[A](x: Try[A]) {
     def |(alt: => A): A                          = x getOrElse alt
     def ||(alt: => Try[A]): Try[A]               = x orElse alt

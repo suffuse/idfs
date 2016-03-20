@@ -1,6 +1,47 @@
 package sfs
 
+import java.nio.file._
+import javax.naming.SizeLimitExceededException
+import net.fusejna.ErrorCodes._
+
 package object fuse {
+
+  def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
+
+  def alreadyExists()  = -EEXIST
+  def doesNotExist()   = -ENOENT
+  def eok()            = 0
+  def isMac            = scala.util.Properties.isMac
+  def isNotValid()     = -EINVAL
+  def notImplemented() = -ENOSYS
+  def notSupported()   = notImplemented()
+
+  implicit class ThrowableOps(t: Throwable) {
+    println(t)
+    def toErrno: Int = t match {
+      case _: FileAlreadyExistsException    => alreadyExists()
+      case _: NoSuchFileException           => doesNotExist()
+      case _: IllegalArgumentException      => isNotValid()
+      case _: UnsupportedOperationException => notImplemented()
+      case _: DirectoryNotEmptyException    => -ENOTEMPTY
+      case _: SizeLimitExceededException    => -EFBIG
+      case _: AccessDeniedException         => -EACCES
+      case _: jio.IOException               => -EIO
+      case _                                => -EIO
+    }
+  }
+
+  def addUnmountHook(fs: FuseFs): Unit =
+    scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
+
+  // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
+  def defaultOptions: Vector[String] = Vector("-o", "direct_io,default_permissions")
+
+  implicit class FuseFilesystemOps(val fs: FuseFilesystem) {
+    def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)
+    def filterNot(p: String => Boolean): FuseFs = new FilteredFs(fs, x => !p(x))
+  }
+
   type DirectoryFiller   = net.fusejna.DirectoryFiller
   type FileInfo          = net.fusejna.StructFuseFileInfo.FileInfoWrapper
   type FlockCommand      = net.fusejna.FlockCommand
@@ -18,15 +59,4 @@ package object fuse {
   type Timespec          = net.fusejna.StructTimespec.ByValue
   type XattrFiller       = net.fusejna.XattrFiller
   type XattrListFiller   = net.fusejna.XattrListFiller
-
-  def addUnmountHook(fs: FuseFs): Unit =
-    scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
-
-  // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
-  def defaultOptions: Vector[String] = Vector("-o", "direct_io,default_permissions")
-
-  implicit class FuseFilesystemOps(val fs: FuseFilesystem) {
-    def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)
-    def filterNot(p: String => Boolean): FuseFs = new FilteredFs(fs, x => !p(x))
-  }
 }
