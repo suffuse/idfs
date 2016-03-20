@@ -18,6 +18,8 @@ package object fuse {
 
   implicit class ThrowableOps(t: Throwable) {
     println(t)
+    println("== CAUSE ==")
+    println(t.getCause)
     def toErrno: Int = t match {
       case _: FileAlreadyExistsException    => alreadyExists()
       case _: NoSuchFileException           => doesNotExist()
