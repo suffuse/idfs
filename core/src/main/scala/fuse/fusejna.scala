@@ -4,25 +4,15 @@ package fuse
 import jio._
 import java.util.concurrent.TimeUnit.SECONDS
 
-/** Cleaning up the javacentric fuse-jna types.
- */
-
-object Node {
-  import net.fusejna.types.TypeMode.NodeType
-
-  final val BlockDev = NodeType.BLOCK_DEVICE
-  final val Dir      = NodeType.DIRECTORY
-  final val Fifo     = NodeType.FIFO
-  final val File     = NodeType.FILE
-  final val Link     = NodeType.SYMBOLIC_LINK
-  final val Socket   = NodeType.SOCKET
-}
-
 /** Forwarding filesystem which only passes through paths which match the filter.
  */
 class FilteredFs(val underlying: FuseFilesystem, cond: String => Boolean) extends ForwarderFs {
+  class Filter(filler: DirectoryFiller) extends DirectoryFiller {
+    def add(files: jIterable[String]): Boolean = filler add (files.asScala filter cond).asJava
+    def add(files: String*): Boolean           = filler add (files filter cond).asJava
+  }
   override def readdir(path: String, df: DirectoryFiller): Int =
-    underlying.readdir(path, new FilteredDirFiller(df, cond))
+    underlying.readdir(path, new Filter(df))
 }
 
 abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
@@ -335,66 +325,4 @@ abstract class ForwarderFs extends FuseFs {
   def unlink(path: String): Int                                                                = underlying.unlink(path)
   def utimens(path: String, wrapper: TimeBufferWrapper): Int                                   = underlying.utimens(path, wrapper)
   def write(path: String, buf: Buf, bufSize: Long, writeOffset: Long, info: FileInfo): Int     = underlying.write(path, buf, bufSize, writeOffset, info)
-}
-
-class NullFs extends FuseFs {
-  def getName(): String                    = getClass.shortName
-  def afterUnmount(mountPoint: File): Unit = ()
-  def beforeMount(mountPoint: File): Unit  = ()
-  def destroy(): Unit                      = ()
-  def init(): Unit                         = ()
-
-  /** Conceptually these are all instance methods of a path. */
-  def access(path: String, access: Int): Int                                                   = eok()
-  def bmap(path: String, info: FileInfo): Int                                                  = eok()
-  def chmod(path: String, mode: ModeInfo): Int                                                 = eok()
-  def chown(path: String, uid: Long, gid: Long): Int                                           = eok()
-  def create(path: String, mode: ModeInfo, info: FileInfo): Int                                = eok()
-  def fgetattr(path: String, stat: StatInfo, info: FileInfo): Int                              = eok()
-  def flush(path: String, info: FileInfo): Int                                                 = eok()
-  def fsync(path: String, datasync: Int, info: FileInfo): Int                                  = eok()
-  def fsyncdir(path: String, datasync: Int, info: FileInfo): Int                               = eok()
-  def ftruncate(path: String, offset: Long, info: FileInfo): Int                               = eok()
-  def getattr(path: String, stat: StatInfo): Int                                               = eok()
-  def getxattr(path: String, xattr: String, filler: XattrFiller, size: Long, pos: Long): Int   = eok()
-  def link(path: String, target: String): Int                                                  = eok()
-  def listxattr(path: String, filler: XattrListFiller): Int                                    = eok()
-  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int      = eok()
-  def mkdir(path: String, mode: ModeInfo): Int                                                 = eok()
-  def mknod(path: String, mode: ModeInfo, dev: Long): Int                                      = eok()
-  def open(path: String, info: FileInfo): Int                                                  = eok()
-  def opendir(path: String, info: FileInfo): Int                                               = eok()
-  def read(path: String, buffer: Buf, size: Long, offset: Long, info: FileInfo): Int           = eok()
-  def readdir(path: String, filler: DirectoryFiller): Int                                      = eok()
-  def readlink(path: String, buffer: Buf, size: Long): Int                                     = eok()
-  def release(path: String, info: FileInfo): Int                                               = eok()
-  def releasedir(path: String, info: FileInfo): Int                                            = eok()
-  def removexattr(path: String, xattr: String): Int                                            = eok()
-  def rename(path: String, newName: String): Int                                               = eok()
-  def rmdir(path: String): Int                                                                 = eok()
-  def setxattr(path: String, xattr: String, value: Buf, size: Long, flags: Int, pos: Int): Int = eok()
-  def statfs(path: String, wrapper: StatvfsWrapper): Int                                       = eok()
-  def symlink(path: String, target: String): Int                                               = eok()
-  def truncate(path: String, offset: Long): Int                                                = eok()
-  def unlink(path: String): Int                                                                = eok()
-  def utimens(path: String, wrapper: TimeBufferWrapper): Int                                   = eok()
-  def write(path: String, buf: Buf, bufSize: Long, writeOffset: Long, info: FileInfo): Int     = eok()
-
-}
-
-/** Our implementation of the DirFiller interface.
- */
-final class DirFiller extends DirectoryFiller {
-  private var count = 0
-  private val buf = Vector.newBuilder[Path]
-  private def add(s: String): Unit = { buf += path(s) ; count += 1 }
-
-  def add(files: jIterable[String]): Boolean = andTrue(files.asScala foreach add)
-  def add(files: String*): Boolean           = andTrue(files foreach add)
-  lazy val result: Vector[Path]              = try buf.result finally buf.clear()
-
-  override def toString = s"DirFiller($count added so far)"
-}
-object DirFiller {
-  def apply(initial: String*): DirFiller = doto(new DirFiller)(_.add(initial: _*))
 }
