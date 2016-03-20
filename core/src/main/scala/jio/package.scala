@@ -47,6 +47,8 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p
 
+    def append(other: Path) = jio.path(path.to_s + other.to_s)
+
     def permissions: PosixFilePermissions = {
       val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
       import jnfa.PosixFilePermission._

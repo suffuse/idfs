@@ -42,7 +42,8 @@ class JavaFilesystem[E <: JavaEffects](root: Path, val effects: E) extends api.F
 
   import effects._
 
-  private def resolvePath(p: Path): Path = root resolve p
+  private def resolvePath(p: Path): Path =
+    root append p
 
   def resolve(path: Path): M[Key] = {
     val p = resolvePath(path)
