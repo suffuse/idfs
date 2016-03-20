@@ -8,6 +8,7 @@ import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit.SECONDS
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 import api._
@@ -96,6 +97,29 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
     def readlink: Rep             = asRep(path.readSymbolicLink)
 
+    def metadata: Metadata = {
+      val pfp = perms.asScala
+      import jnfa.PosixFilePermission._
+      import api.attributes._
+      val metadata =
+        Metadata(
+          Atime(atime to SECONDS),
+          Mtime(mtime to SECONDS),
+          Permissions(
+            pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
+            pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
+            pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
+          ),
+          Size(path.size),
+          Uid(uid),
+          BlockCount(blockCount)
+        )
+
+           if (isFile) metadata set File
+      else if (isDir ) metadata set Dir
+      else if (isLink) metadata set Link
+      else metadata
+    }
     def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
     def gid: Int                         = 0 // OMG what a hassle.
     def atime: FileTime                  = basicAttributes.lastAccessTime
@@ -134,7 +158,7 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   )
 
   def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
-  def path(s: String, ss: String*): Path        = ss.foldLeft(jnf.Paths get s)(_ resolve _)
+  def path: String => Path                      = jnf.Paths get _
   def homeDir: Path                             = path(sys.props("user.home"))
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
 
@@ -186,6 +210,7 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   type OpenOption         = jnf.OpenOption
   type Path               = jnf.Path
   type PathDirStream      = jnf.DirectoryStream[Path]
+  type NoSuchFileException  = jnf.NoSuchFileException
 
   type AnyFileAttr         = jnfa.FileAttribute[_]
   type BasicFileAttributes = jnfa.BasicFileAttributes

@@ -23,7 +23,7 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
 
   def transformAttributes(f: Vector[Attribute] => Vector[Attribute]): Metadata = new Metadata(f(attributes))
 
-  def apply[A: Empty]()(implicit z: Key[A]): A = if (has[A]) untypedAs[A] else empty[A]
+  def apply[A: Empty]()(implicit z: Key[A]): A = fold[A](ifValue = identity[A], orElse = empty[A])
 
   def isEmpty                                  = untypedMap.isEmpty
   def has[A]()(implicit z: Key[A]): Boolean    = attributes exists (_ hasKey z)
@@ -44,6 +44,14 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
     def flatMap(f: A => Option[A]): Metadata = f(md[A]()).fold(md)(md set _)
     def filter(p: A => Boolean): Metadata    = if (has[A] && !p(md[A])) md.drop[A] else md
   }
+
+  def fold[A]: Fold[A] = new Fold[A]
+  class Fold[A] {
+    def apply[B](ifValue: A => B, orElse: => B)(implicit z: Key[A]): B =
+      if (has[A]) ifValue(untypedAs[A]) else orElse
+  }
+
+  def foreach(f: Any =?> Unit): Unit = attributes.map(_.value) foreach (x => if (f isDefinedAt x) f(x) else unit)
 
   def mapOnly(pf: Attribute =?> Attribute): Metadata = map(x => if (pf isDefinedAt x) pf(x) else x)
   def map(f: Attribute => Attribute): Metadata       = transformAttributes(_ map f)
@@ -73,7 +81,7 @@ trait Attribute extends Any with ShowDirect {
 object Attribute {
   type Of[A] = Attribute { type Type = A }
 
-  def apply[A](value: A)(implicit key: Key[A]): Of[A] = AttributeOf[A](key, value)
+  implicit def apply[A](value: A)(implicit key: Key[A]): Of[A] = AttributeOf[A](key, value)
   def unapply(x: Attribute): Some[x.Type]             = Some(x.value)
 
   /** The simple implementation of Attribute, which ties the knot between the

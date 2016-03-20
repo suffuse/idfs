@@ -40,4 +40,15 @@ package object sfs extends sfs.api.Api {
       case Failure(t) => l(t)
     }
   }
+
+  trait Functor[F[_]] {
+    def map[A, B](f: A => B): F[A] => F[B]
+  }
+  object Functor {
+    implicit def forMappable[A, M[A] <: { def map[B](f: A => B): M[B] }]: Functor[M] =
+      new Functor[M] { def map[A, B](f: A => B): M[A] => M[B] = _ map f }
+  }
+  implicit class FunctorOps[F[_], A](fa: F[A])(implicit F: Functor[F]) {
+    def map[B](f: A => B): F[B] = F.map(f)(fa)
+  }
 }

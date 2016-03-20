@@ -9,6 +9,8 @@ trait Api {
   type Iso[A]      = A => A
   type CTag[A]     = scala.reflect.ClassTag[A]
 
+  def unit = ()
+
   def classOf[A](implicit z: CTag[A]): Class[A] = classTag[A].runtimeClass.asInstanceOf[Class[A]]
   def classTag[A](implicit z: CTag[A]): CTag[A] = z
 

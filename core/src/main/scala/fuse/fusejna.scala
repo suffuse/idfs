@@ -29,7 +29,7 @@ abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
 }
 
-class RootedFsClass(val name: String, val root: Path) extends RootedFs {
+class RootedFsClass(val name: String, val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
   def getName = name
 }
 
@@ -37,17 +37,21 @@ trait RootedFs extends FuseFsFull {
   def root: Path
   def rootFile = root.toFile
 
+  // dependent types force us to have a single fs (a `val`)
+  val fs: FuseCompatibleFs
+
   protected def fuseContext: FuseContext
   protected def resolvePath(p: String): Path = path(s"$root$p")
   protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripSuffix "/")
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    val p          = resolvePath(path)
-    val data       = pathBytes(p)
-    val totalBytes = if (offset + size > data.length) data.length - offset else size
-
-    effect(totalBytes.toInt)( buf.put(data, offset.toInt, totalBytes.toInt) )
-  }
+    for {
+      key           <- fs resolve path
+      fs.File(data) <- fs lookup key
+      totalBytes    =  if (offset + size > data.length) data.length - offset else size
+      _             =  buf.put(data, offset.toInt, totalBytes.toInt)
+    } yield totalBytes.toInt
+  }.toInt
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     def impl(): Unit = {
@@ -62,15 +66,21 @@ trait RootedFs extends FuseFsFull {
   def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =
     tryFuse { resolvePath(path).tryLock() }
 
-  def readdir(path: String, filler: DirectoryFiller): Int =
-    effect(eok)(resolvePath(path).ls foreach (filler add _.toString))
+  def readdir(path: String, filler: DirectoryFiller): Int = {
+    for {
+      key              <- fs resolve path
+      fs.Dir(children) <- fs lookup key ensure fs.isDir orElseUse empty[fs.Dir]
+      _                =  children.keys foreach (child => filler add (path + "/" + child))
+    } yield eok
+  }.toInt
 
-  def readlink(path: String, buf: ByteBuffer, size: Long): Int =
-    resolvePath(path) match {
-      case p if !p.nofollow.exists => doesNotExist()
-      case p if !p.isSymbolicLink  => isNotValid()
-      case p                       => effect(eok)(buf put (p.readlink.to_s getBytes jio.UTF8))
-    }
+  def readlink(path: String, buf: ByteBuffer, size: Long): Int = {
+    for {
+      key             <- fs resolve path
+      fs.Link(target) <- fs lookup key ensure fs.isLink orElse NotValid
+      _               =  buf put (target getBytes UTF8)
+    } yield eok
+  }.toInt
 
   def create(path: String, mode: ModeInfo, info: FileInfo): Int = {
     import Node._
@@ -89,13 +99,13 @@ trait RootedFs extends FuseFsFull {
       case f                      => effect(eok)(f.mkdir(mode.mode))
     }
 
-  def getattr(path: String, stat: StatInfo): Int =
-    resolvePath(path) match {
-      case f if f.isFile               => effect(eok)(populateStat(stat, f, Node.File))
-      case d if d.nofollow.isDirectory => effect(eok)(populateStat(stat, d, Node.Dir))
-      case l if l.isSymbolicLink       => effect(eok)(populateStat(stat, l, Node.Link))
-      case _                           => doesNotExist()
-    }
+  def getattr(path: String, stat: StatInfo): Int = {
+    for {
+      key      <- fs resolve path
+      metadata <- fs metadata key
+      _        <- populateStat(stat, metadata)
+    } yield eok
+  }.toInt
 
   def rename(from: String, to: String): Int =
     tryFuse { resolvePath(from) moveTo resolvePath(to) }
@@ -136,25 +146,32 @@ trait RootedFs extends FuseFsFull {
 
   protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
 
-  protected def populateStat(stat: StatInfo, path: Path, nodeType: NodeType): Unit = {
-    populateMode(stat, path, nodeType)
-    stat size   path.size
-    stat atime  (path.atime to SECONDS)
-    stat mtime  (path.mtime to SECONDS)
-    stat blocks path.blockCount
-    stat nlink  1
-    stat uid    path.uid
-    stat gid    getGID // XXX huge hassle.
-  }
+  private def populateStat(stat: StatInfo, metadata: api.Metadata): Result[Unit] = {
+    import api.attributes._
+    for {
+      nodeType    <- metadata fold[NodeType] (ifValue = Success(_), orElse = DoesNotExist)
+      permissions =  metadata[Permissions]
+    } yield {
 
-  protected def populateMode(mode: IModeInfo, path: Path, nodeType: NodeType): Unit = {
-    val pp = path.permissions
-    import pp._
-    mode setMode (nodeType,
-      ownerRead, ownerWrite, ownerExecute,
-      groupRead, groupWrite, groupExecute,
-      otherRead, otherWrite, otherExecute
-    )
+      metadata foreach {
+        case Size(bytes)        => stat size   bytes
+        case Atime(timestamp)   => stat atime  timestamp
+        case Mtime(timestamp)   => stat mtime  timestamp
+        case BlockCount(amount) => stat blocks amount
+        case Uid(value)         => stat uid    value
+      }
+
+      import permissions._
+
+      stat setMode (nodeType.asFuse,
+        ownerRead, ownerWrite, ownerExecute,
+        groupRead, groupWrite, groupExecute,
+        otherRead, otherWrite, otherExecute
+      )
+
+      stat nlink  1
+      stat gid    getGID // XXX huge hassle.
+    }
   }
 
   // comments taken from https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201109/homework/fuse/fuse_doc.html#function-purposes
