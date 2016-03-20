@@ -14,6 +14,7 @@ object filterfs extends FsRunner {
     start(new Rooted(from) filterNot (_ matches regex), to)
   }
 }
+
 object reversefs extends FsRunner {
   trait Reverser extends RootedFs {
     override protected def pathBytes(path: Path): Array[Byte] =
