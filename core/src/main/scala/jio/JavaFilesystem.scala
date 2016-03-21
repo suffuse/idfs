@@ -3,6 +3,7 @@ package jio
 
 import java.nio.file._
 import javax.naming.SizeLimitExceededException
+import api._
 
 trait JavaEffects {
 

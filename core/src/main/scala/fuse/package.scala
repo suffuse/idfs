@@ -3,6 +3,7 @@ package sfs
 import java.nio.file._
 import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
+import api._
 
 package object fuse {
 

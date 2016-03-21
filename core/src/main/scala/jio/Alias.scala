@@ -4,6 +4,7 @@ package jio
 import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
+import api._
 
 trait Alias {
   type jArray[A]        = Array[A with Object]
@@ -38,7 +39,6 @@ trait Alias {
   type BasicFileAttributes = jnfa.BasicFileAttributes
   type FileAttributeView   = jnfa.FileAttributeView
   type FileAttribute[A]    = jnfa.FileAttribute[A]
-  type FileTime            = jnfa.FileTime
   type GroupPrincipal      = jnfa.GroupPrincipal
   type PosixFileAttributes = jnfa.PosixFileAttributes
   type PosixFilePermission = jnfa.PosixFilePermission

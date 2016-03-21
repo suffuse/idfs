@@ -1,15 +1,13 @@
 package sfs
 package api
 
-import java.nio.file.attribute.FileTime
-
 object attributes {
   // underscore on implicits to prevent shadowing
 
   trait FileTimeBased[This] {
     def timestamp: FileTime
     protected def create(time: FileTime): This
-    def +(amount: Duration): This = create(FileTime fromMillis timestamp.toMillis + amount.toMillis)
+    def +(amount: Duration): This = create(fileTimeInMillis(timestamp.toMillis + amount.toMillis))
   }
 
   final case class UnixPerms(mask: Long) {

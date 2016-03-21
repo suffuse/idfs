@@ -1,8 +1,7 @@
 package sfs
 package fuse
 
-import jio._
-import java.util.concurrent.TimeUnit.SECONDS
+import jio._, api._
 
 /** Forwarding filesystem which only passes through paths which match the filter.
  */
@@ -144,8 +143,8 @@ trait RootedFs extends FuseFsFull {
 
       metadata foreach {
         case Size(bytes)        => stat size   bytes
-        case Atime(timestamp)   => stat atime  (timestamp to SECONDS)
-        case Mtime(timestamp)   => stat mtime  (timestamp to SECONDS)
+        case Atime(timestamp)   => stat atime  timestamp.inSeconds
+        case Mtime(timestamp)   => stat mtime  timestamp.inSeconds
         case BlockCount(amount) => stat blocks amount
         case Uid(value)         => stat uid    value
         case UnixPerms(mask)    => stat mode   (nodeType.asFuse.getBits | mask)

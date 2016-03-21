@@ -18,23 +18,10 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
 
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
   def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
-  def fileTimeInMillis(ms: Long): FileTime      = jnfa.FileTime fromMillis ms
-  def fileTimeInNanos(nanos: Long): FileTime    = jnfa.FileTime.from(nanos, TimeUnit.NANOSECONDS)
-  def fileTimeInSeconds(secs: Long): FileTime   = jnfa.FileTime.from(secs, TimeUnit.SECONDS)
   def homeDir: Path                             = path(sys.props("user.home"))
   def jList[A](xs: A*): jList[A]                = doto(new java.util.ArrayList[A])(xs foreach _.add)
   def jSet[A](xs: A*): jSet[A]                  = doto(new java.util.HashSet[A])(xs foreach _.add)
   def path: String => Path                      = jnf.Paths get _
-
-  implicit class FileTimeOps(val x: FileTime) extends AnyVal {
-    def isOlder(that: FileTime) = (x compareTo that) < 0
-    def isNewer(that: FileTime) = (x compareTo that) > 0
-    def inSeconds: Long         = x to TimeUnit.SECONDS
-    def inMillis: Long          = x.toMillis
-    def inNanoSeconds: Long     = x to TimeUnit.NANOSECONDS
-
-    def +(amount: Duration): FileTime = fileTimeInMillis(inMillis + amount.toMillis)
-  }
 
   implicit class JioFilesInstanceOps(path: Path) extends JioFilesInstance(path)
 
