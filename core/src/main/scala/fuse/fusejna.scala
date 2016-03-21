@@ -140,7 +140,6 @@ trait RootedFs extends FuseFsFull {
     import api.attributes._
     for {
       nodeType    <- metadata fold[NodeType] (ifValue = Success(_), orElse = DoesNotExist)
-      permissions =  metadata[Permissions]
     } yield {
 
       metadata foreach {
@@ -149,15 +148,8 @@ trait RootedFs extends FuseFsFull {
         case Mtime(timestamp)   => stat mtime  timestamp
         case BlockCount(amount) => stat blocks amount
         case Uid(value)         => stat uid    value
+        case UnixPerms(mask)    => stat mode   (nodeType.asFuse.getBits | mask)
       }
-
-      import permissions._
-
-      stat setMode (nodeType.asFuse,
-        ownerRead, ownerWrite, ownerExecute,
-        groupRead, groupWrite, groupExecute,
-        otherRead, otherWrite, otherExecute
-      )
 
       stat nlink  1
       stat gid    getGID // XXX huge hassle.

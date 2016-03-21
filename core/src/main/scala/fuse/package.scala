@@ -132,7 +132,7 @@ package object fuse {
     case _                => notImplemented()
   }
 
-  implicit class NodeTypeOps(nodeType: api.attributes.NodeType) {
+  implicit class NodeTypeOps(val nodeType: api.attributes.NodeType) extends AnyVal {
 
     import api.attributes._
     def asFuse = nodeType match {

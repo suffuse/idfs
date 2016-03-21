@@ -100,18 +100,13 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def readlink: Rep             = asRep(path.readSymbolicLink)
 
     def metadata: Metadata = {
-      val pfp = perms.asScala
       import jnfa.PosixFilePermission._
       import api.attributes._
       val metadata =
         Metadata(
           Atime(atime to SECONDS),
           Mtime(mtime to SECONDS),
-          Permissions(
-            pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
-            pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
-            pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
-          ),
+          UnixPerms(toUnixMask(perms)),
           Uid(uid)
         )
 
@@ -161,6 +156,31 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   def path: String => Path                      = jnf.Paths get _
   def homeDir: Path                             = path(sys.props("user.home"))
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
+
+  implicit class UnixPermsOps(val perms: api.attributes.UnixPerms) extends AnyVal {
+    def java: Set[PosixFilePermission] = perms.bits map UnixToJava
+  }
+
+  def toUnixMask(perms: jFilePermissions) =
+    ( perms.asScala map JavaToUnix ).foldLeft(0L)(_ | _)
+
+  lazy val UnixToJava = (api.attributes.UnixPerms.Bits zip JavaBits).toMap
+  lazy val JavaToUnix = (JavaBits zip api.attributes.UnixPerms.Bits).toMap
+
+  lazy val JavaBits = {
+    import jnfa.PosixFilePermission._
+    Vector[PosixFilePermission](
+      OWNER_READ,
+      OWNER_WRITE,
+      OWNER_EXECUTE,
+      GROUP_READ,
+      GROUP_WRITE,
+      GROUP_EXECUTE,
+      OTHERS_READ,
+      OTHERS_WRITE,
+      OTHERS_EXECUTE
+    )
+  }
 
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._
