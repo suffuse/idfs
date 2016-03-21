@@ -199,18 +199,18 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   type jUri             = java.net.URI
   type jUrl             = java.net.URL
 
-  type CopyOption         = jnf.CopyOption
-  type DirStreamFilter[A] = jnf.DirectoryStream.Filter[A]
-  type FileStore          = jnf.FileStore
-  type FileSystem         = jnf.FileSystem
-  type FileSystemProvider = jnf.spi.FileSystemProvider
-  type FileVisitOption    = jnf.FileVisitOption
-  type FileVisitor[A]     = jnf.FileVisitor[A]
-  type LinkOption         = jnf.LinkOption
-  type OpenOption         = jnf.OpenOption
-  type Path               = jnf.Path
-  type PathDirStream      = jnf.DirectoryStream[Path]
-  type NoSuchFileException  = jnf.NoSuchFileException
+  type CopyOption          = jnf.CopyOption
+  type DirStreamFilter[A]  = jnf.DirectoryStream.Filter[A]
+  type FileStore           = jnf.FileStore
+  type FileSystem          = jnf.FileSystem
+  type FileSystemProvider  = jnf.spi.FileSystemProvider
+  type FileVisitOption     = jnf.FileVisitOption
+  type FileVisitor[A]      = jnf.FileVisitor[A]
+  type LinkOption          = jnf.LinkOption
+  type OpenOption          = jnf.OpenOption
+  type Path                = jnf.Path
+  type PathDirStream       = jnf.DirectoryStream[Path]
+  type NoSuchFileException = jnf.NoSuchFileException
 
   type AnyFileAttr         = jnfa.FileAttribute[_]
   type BasicFileAttributes = jnfa.BasicFileAttributes
