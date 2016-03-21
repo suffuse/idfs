@@ -108,8 +108,8 @@ package object jio extends DecorateAsScala with DecorateAsJava {
           Atime(atime to SECONDS),
           Mtime(mtime to SECONDS),
           Permissions(
-            pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
             pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
+            pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
             pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
           ),
           Size(path.size),
