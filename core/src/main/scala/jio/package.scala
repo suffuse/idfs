@@ -112,12 +112,10 @@ package object jio extends DecorateAsScala with DecorateAsJava {
             pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
             pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
           ),
-          Size(path.size),
-          Uid(uid),
-          BlockCount(blockCount)
+          Uid(uid)
         )
 
-           if (isFile) metadata set File
+           if (isFile) metadata set File set Size(path.size) set BlockCount(blockCount)
       else if (isDir ) metadata set Dir
       else if (isLink) metadata set Link
       else metadata
