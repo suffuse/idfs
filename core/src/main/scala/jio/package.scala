@@ -8,6 +8,7 @@ import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnfa.PosixFilePermissions.asFileAttribute
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit.SECONDS
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
 import api._
@@ -45,6 +46,8 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   }
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p
+
+    def append(other: Path) = jio.path(path.to_s + other.to_s)
 
     def permissions: PosixFilePermissions = {
       val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
@@ -96,6 +99,22 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
     def readlink: Rep             = asRep(path.readSymbolicLink)
 
+    def metadata: Metadata = {
+      import jnfa.PosixFilePermission._
+      import api.attributes._
+      val metadata =
+        Metadata(
+          Atime(atime to SECONDS),
+          Mtime(mtime to SECONDS),
+          UnixPerms(toUnixMask(perms)),
+          Uid(uid)
+        )
+
+           if (isFile) metadata set File set Size(path.size) set BlockCount(blockCount)
+      else if (isDir ) metadata set Dir
+      else if (isLink) metadata set Link
+      else metadata
+    }
     def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
     def gid: Int                         = 0 // OMG what a hassle.
     def atime: FileTime                  = basicAttributes.lastAccessTime
@@ -134,9 +153,34 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   )
 
   def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
-  def path(s: String, ss: String*): Path        = ss.foldLeft(jnf.Paths get s)(_ resolve _)
+  def path: String => Path                      = jnf.Paths get _
   def homeDir: Path                             = path(sys.props("user.home"))
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
+
+  implicit class UnixPermsOps(val perms: api.attributes.UnixPerms) extends AnyVal {
+    def java: Set[PosixFilePermission] = perms.bits map UnixToJava
+  }
+
+  def toUnixMask(perms: jFilePermissions) =
+    ( perms.asScala map JavaToUnix ).foldLeft(0L)(_ | _)
+
+  lazy val UnixToJava = (api.attributes.UnixPerms.Bits zip JavaBits).toMap
+  lazy val JavaToUnix = (JavaBits zip api.attributes.UnixPerms.Bits).toMap
+
+  lazy val JavaBits = {
+    import jnfa.PosixFilePermission._
+    Vector[PosixFilePermission](
+      OWNER_READ,
+      OWNER_WRITE,
+      OWNER_EXECUTE,
+      GROUP_READ,
+      GROUP_WRITE,
+      GROUP_EXECUTE,
+      OTHERS_READ,
+      OTHERS_WRITE,
+      OTHERS_EXECUTE
+    )
+  }
 
   def bitsAsPermissions(bits: Long): jFilePermissions = {
     import jnfa.PosixFilePermission._
@@ -175,17 +219,18 @@ package object jio extends DecorateAsScala with DecorateAsJava {
   type jUri             = java.net.URI
   type jUrl             = java.net.URL
 
-  type CopyOption         = jnf.CopyOption
-  type DirStreamFilter[A] = jnf.DirectoryStream.Filter[A]
-  type FileStore          = jnf.FileStore
-  type FileSystem         = jnf.FileSystem
-  type FileSystemProvider = jnf.spi.FileSystemProvider
-  type FileVisitOption    = jnf.FileVisitOption
-  type FileVisitor[A]     = jnf.FileVisitor[A]
-  type LinkOption         = jnf.LinkOption
-  type OpenOption         = jnf.OpenOption
-  type Path               = jnf.Path
-  type PathDirStream      = jnf.DirectoryStream[Path]
+  type CopyOption          = jnf.CopyOption
+  type DirStreamFilter[A]  = jnf.DirectoryStream.Filter[A]
+  type FileStore           = jnf.FileStore
+  type FileSystem          = jnf.FileSystem
+  type FileSystemProvider  = jnf.spi.FileSystemProvider
+  type FileVisitOption     = jnf.FileVisitOption
+  type FileVisitor[A]      = jnf.FileVisitor[A]
+  type LinkOption          = jnf.LinkOption
+  type OpenOption          = jnf.OpenOption
+  type Path                = jnf.Path
+  type PathDirStream       = jnf.DirectoryStream[Path]
+  type NoSuchFileException = jnf.NoSuchFileException
 
   type AnyFileAttr         = jnfa.FileAttribute[_]
   type BasicFileAttributes = jnfa.BasicFileAttributes

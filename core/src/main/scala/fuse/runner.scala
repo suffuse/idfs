@@ -35,8 +35,15 @@ abstract class FsRunner {
   def usage: String                               = "<from> <to>"
   def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground path(mountPoint)
 
-  class Rooted(val root: Path) extends RootedFs {
-    def this(root: String) = this(path(root))
+  // clicking different parts together
+  private def fuseJavaFs(root: Path) = {
+    import fs._
+    new jio.JavaFilesystem(root, effects = new jio.FuseEffects) withMappedPath (path, _.to_s)
+  }
+
+  class Rooted(val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
+    def this(root: String) = this(path(root), fuseJavaFs(path(root)))
+    def this(root: Path) = this(root, fuseJavaFs(root))
     def getName = name
   }
 

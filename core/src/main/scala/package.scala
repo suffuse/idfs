@@ -40,4 +40,8 @@ package object sfs extends sfs.api.Api {
       case Failure(t) => l(t)
     }
   }
+
+  implicit class FunctorOps[F[_], A](fa: F[A])(implicit F: Functor[F]) {
+    def map[B](f: A => B): F[B] = F.map(f)(fa)
+  }
 }
