@@ -8,7 +8,7 @@ package object fs {
     def withMappedPath[T](
       pathFromT: T => underlying.Path,
         pathToT: underlying.Path => T
-    )(implicit F: Functor[underlying.M]) = new api.Filesystem {
+    )(implicit F: api.Functor[underlying.M]) = new api.Filesystem {
 
       type Path = T
 

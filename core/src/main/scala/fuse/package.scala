@@ -103,6 +103,11 @@ package object fuse {
       }
   }
 
+  object Result {
+    implicit def _functor: api.Functor[Result] =
+      new api.Functor[Result] { def map[A, B](f: A => B) = _ map f }
+  }
+
   final case class Success[A](value: A) extends Result[A]
   sealed trait Error extends Result[Nothing]
 
