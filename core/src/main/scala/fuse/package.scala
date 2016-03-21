@@ -137,31 +137,6 @@ package object fuse {
     }
   }
 
-  // This file exists to experiment with transforming parts of the file system, in this case the Path
-  implicit class Wrapped[FS <: api.Filesystem](val underlying: FS) {
-
-    def withPathAsString(
-      pathFromString: String => underlying.Path,
-        pathToString: underlying.Path => String
-    )(implicit F: Functor[underlying.M]) = new api.Filesystem {
-
-      type Path = String
-
-      type M[A] = underlying.M[A]
-      type Name = underlying.Name
-      type Key  = underlying.Key
-      type IO   = underlying.IO
-
-      def resolve(path: Path): Key            = underlying resolve pathFromString(path)
-      def metadata(key: Key): M[api.Metadata] = underlying metadata key
-      def lookup(key: Key): M[Data]           = underlying lookup key map {
-        case underlying.Link(path)    => Link(pathToString(path))
-        case underlying.File(io)      => File(io)
-        case underlying.Dir(children) => Dir(children)
-      }
-    }
-  }
-
   type DirectoryFiller   = net.fusejna.DirectoryFiller
   type FileInfo          = net.fusejna.StructFuseFileInfo.FileInfoWrapper
   type FlockCommand      = net.fusejna.FlockCommand
