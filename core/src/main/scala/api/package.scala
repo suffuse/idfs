@@ -1,5 +1,6 @@
 package sfs
 
+import java.nio.file.{ attribute => jnfa }
 import java.util.concurrent.TimeUnit
 
 package object api extends sfs.api.Api {
@@ -10,6 +11,14 @@ package object api extends sfs.api.Api {
     def inMillis: Long          = x.toMillis
     def inNanoSeconds: Long     = x to TimeUnit.NANOSECONDS
 
-    def +(amount: Duration): FileTime = fileTimeInMillis(inMillis + amount.toMillis)
+    def +(amount: Duration): FileTime = FileTime.millis(inMillis + amount.toMillis)
+  }
+}
+
+package api {
+  object FileTime {
+    def millis(ms: Long): FileTime    = jnfa.FileTime fromMillis ms
+    def nanos(nanos: Long): FileTime  = jnfa.FileTime.from(nanos, TimeUnit.NANOSECONDS)
+    def seconds(secs: Long): FileTime = jnfa.FileTime.from(secs, TimeUnit.SECONDS)
   }
 }

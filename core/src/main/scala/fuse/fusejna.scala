@@ -117,7 +117,7 @@ trait RootedFs extends FuseFsFull {
   // chmod calls to a link are applied to the link target.
   def chmod(path: String, mode: ModeInfo): Int =
     resolvePath(path) match {
-      case p if p.follow.exists => effect(eok)(p.setPermissions(mode.mode))
+      case p if p.follow.exists => effect(eok)(p setPosixFilePermissions bitsAsPermissions(mode.mode))
       case _                    => doesNotExist()
     }
 
@@ -131,7 +131,7 @@ trait RootedFs extends FuseFsFull {
     tryFuse { effect(eok)(resolvePath(path) truncate size) }
 
   def utimens(path: String, wrapper: TimeBufferWrapper) =
-    tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
+    tryFuse(resolvePath(path) setLastModifiedTime FileTime.nanos(wrapper.mod_nsec))
 
   protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
 

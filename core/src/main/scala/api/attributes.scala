@@ -4,10 +4,9 @@ package api
 object attributes {
   // underscore on implicits to prevent shadowing
 
-  trait FileTimeBased[This] {
+  abstract class FileTimeBased[This](create: FileTime => This) {
     def timestamp: FileTime
-    protected def create(time: FileTime): This
-    def +(amount: Duration): This = create(fileTimeInMillis(timestamp.toMillis + amount.toMillis))
+    def +(amount: Duration): This = create(timestamp + amount)
   }
 
   final case class UnixPerms(mask: Long) {
@@ -42,8 +41,7 @@ object attributes {
   }
   implicit val _nodeType = new api.Key[NodeType]("type of node")
 
-  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime] {
-    protected def create(time: FileTime): Mtime = Mtime(time)
+  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](x => Mtime(x)) {
     override def hashCode = timestamp.toMillis.##
     override def equals(that: Any) = that match {
       case Mtime(other) => timestamp.toMillis == other.toMillis

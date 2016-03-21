@@ -61,12 +61,6 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
       )
     }
 
-    def setPermissions(bits: Long): Unit =
-      Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
-
-    def setLastModifiedTime(nanoSeconds: Long): Unit =
-      Files.setLastModifiedTime(path, fileTimeInNanos(nanoSeconds))
-
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
     def truncate(size: Long): Unit = withWriteChannel {
       case c if c.size > size => c truncate size

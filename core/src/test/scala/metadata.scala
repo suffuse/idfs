@@ -11,7 +11,7 @@ final class MetadataTests {
 
   @Test
   def monadsAndMetadata(): Unit = {
-    val stamp = Mtime(fileTimeInSeconds(123))
+    val stamp = Mtime(FileTime seconds 123)
     var attrs = Metadata set stamp
     assertEquals(attrs[Mtime], stamp)
 

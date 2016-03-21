@@ -1,7 +1,6 @@
 package sfs
 package api
 
-import java.nio.file.{ attribute => jnfa }
 import java.util.concurrent.TimeUnit
 
 trait Api {
@@ -24,8 +23,4 @@ trait Api {
   def effect[A](x: A)(effects: Any*): A = x
   def empty[A](implicit z: Empty[A]): A = z.emptyValue
   def Try[A](body: => A): Try[A]        = scala.util.Try[A](body)
-
-  def fileTimeInMillis(ms: Long): FileTime    = jnfa.FileTime fromMillis ms
-  def fileTimeInNanos(nanos: Long): FileTime  = jnfa.FileTime.from(nanos, TimeUnit.NANOSECONDS)
-  def fileTimeInSeconds(secs: Long): FileTime = jnfa.FileTime.from(secs, TimeUnit.SECONDS)
 }
