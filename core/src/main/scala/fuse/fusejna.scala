@@ -144,8 +144,8 @@ trait RootedFs extends FuseFsFull {
 
       metadata foreach {
         case Size(bytes)        => stat size   bytes
-        case Atime(timestamp)   => stat atime  timestamp
-        case Mtime(timestamp)   => stat mtime  timestamp
+        case Atime(timestamp)   => stat atime  (timestamp to SECONDS)
+        case Mtime(timestamp)   => stat mtime  (timestamp to SECONDS)
         case BlockCount(amount) => stat blocks amount
         case Uid(value)         => stat uid    value
         case UnixPerms(mask)    => stat mode   (nodeType.asFuse.getBits | mask)
