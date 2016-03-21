@@ -9,7 +9,6 @@ import jnf.LinkOption.NOFOLLOW_LINKS
 import java.util.concurrent.TimeUnit
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
-import scala.concurrent.duration.Duration
 import api._, attributes.Mtime
 
 package object jio extends DecorateAsScala with DecorateAsJava with Alias {

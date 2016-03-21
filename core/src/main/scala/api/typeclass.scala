@@ -1,8 +1,6 @@
 package sfs
 package api
 
-import scala.concurrent.duration.Duration
-
 trait Empty[+A] {
   def emptyValue: A
 }

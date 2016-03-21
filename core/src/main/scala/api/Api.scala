@@ -8,6 +8,7 @@ trait Api {
   type =?>[-A, +B] = scala.PartialFunction[A, B]
   type Iso[A]      = A => A
   type CTag[A]     = scala.reflect.ClassTag[A]
+  type Duration    = scala.concurrent.duration.Duration
 
   def unit = ()
 

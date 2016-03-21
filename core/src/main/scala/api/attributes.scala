@@ -2,7 +2,6 @@ package sfs
 package api
 
 import java.nio.file.attribute.FileTime
-import scala.concurrent.duration.Duration
 
 object attributes {
   // underscore on implicits to prevent shadowing
