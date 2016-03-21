@@ -20,16 +20,19 @@ class FuseEffects extends JavaEffects {
 
   def success[A]: A => fuse.Result[A] = fuse.Success[A]
 
-  def error[A]: Throwable => fuse.Result[A] = {
-    case _: FileAlreadyExistsException    => fuse.AlreadyExists
-    case _: NoSuchFileException           => fuse.DoesNotExist
-    case _: IllegalArgumentException      => fuse.NotValid
-    case _: UnsupportedOperationException => fuse.NotImplemented
-    case _: DirectoryNotEmptyException    => fuse.NotEmpty
-    case _: SizeLimitExceededException    => fuse.TooBig
-    case _: AccessDeniedException         => fuse.AccessDenied
-    case _: jio.IOException               => fuse.InputOutputError
-    case _                                => fuse.InputOutputError
+  def error[A]: Throwable => fuse.Result[A] = { t =>
+    println(t)
+    t match{
+      case _: FileAlreadyExistsException    => fuse.AlreadyExists
+      case _: NoSuchFileException           => fuse.DoesNotExist
+      case _: IllegalArgumentException      => fuse.NotValid
+      case _: UnsupportedOperationException => fuse.NotImplemented
+      case _: DirectoryNotEmptyException    => fuse.NotEmpty
+      case _: SizeLimitExceededException    => fuse.TooBig
+      case _: AccessDeniedException         => fuse.AccessDenied
+      case _: jio.IOException               => fuse.InputOutputError
+      case _                                => fuse.InputOutputError
+    }
   }
 }
 
@@ -42,14 +45,7 @@ class JavaFilesystem[E <: JavaEffects](root: Path, val effects: E) extends api.F
 
   import effects._
 
-  private def resolvePath(p: Path): Path =
-    root append p
-
-  def resolve(path: Path): M[Key] = {
-    val p = resolvePath(path)
-    if (p.nofollow.exists) success(p)
-    else error(notFound(p))
-  }
+  def resolve(path: Path): Key = root append path
 
   def metadata(key: Key): M[api.Metadata] =
     key match {

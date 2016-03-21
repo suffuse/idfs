@@ -35,8 +35,8 @@ trait RootedFs extends FuseFsFull {
   protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripPrefix "/")
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
+    val key = fs resolve path
     for {
-      key           <- fs resolve path
       fs.File(data) <- fs lookup key
       totalBytes    =  if (offset + size > data.length) data.length - offset else size
       _             =  buf.put(data, offset.toInt, totalBytes.toInt)
@@ -57,16 +57,16 @@ trait RootedFs extends FuseFsFull {
     tryFuse { resolvePath(path).tryLock() }
 
   def readdir(path: String, filler: DirectoryFiller): Int = {
+    val key = fs resolve path
     for {
-      key              <- fs resolve path
       fs.Dir(children) <- fs lookup key ensure fs.isDir orElseUse empty[fs.Dir]
       _                =  children.keys foreach (child => filler add (path + "/" + child))
     } yield eok
   }.toInt
 
   def readlink(path: String, buf: ByteBuffer, size: Long): Int = {
+    val key = fs resolve path
     for {
-      key             <- fs resolve path
       fs.Link(target) <- fs lookup key ensure fs.isLink orElse NotValid
       _               =  buf put (target getBytes UTF8)
     } yield eok
@@ -90,8 +90,8 @@ trait RootedFs extends FuseFsFull {
     }
 
   def getattr(path: String, stat: StatInfo): Int = {
+    val key = fs resolve path
     for {
-      key      <- fs resolve path
       metadata <- fs metadata key
       _        <- populateStat(stat, metadata)
     } yield eok

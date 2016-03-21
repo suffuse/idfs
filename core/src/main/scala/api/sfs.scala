@@ -29,7 +29,7 @@ trait Filesystem {
    *  abstraction boundaries so that one does not wind up computing
    *  things too eagerly, nor caching data for too long.
    */
-  def resolve(path: Path): M[Key]
+  def resolve(path: Path): Key
   def metadata(key: Key): M[Metadata]
   def lookup(key: Key): M[Data]
 

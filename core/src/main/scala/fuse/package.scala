@@ -152,7 +152,7 @@ package object fuse {
       type Key  = underlying.Key
       type IO   = underlying.IO
 
-      def resolve(path: Path): M[Key]         = underlying resolve pathFromString(path)
+      def resolve(path: Path): Key            = underlying resolve pathFromString(path)
       def metadata(key: Key): M[api.Metadata] = underlying metadata key
       def lookup(key: Key): M[Data]           = underlying lookup key map {
         case underlying.Link(path)    => Link(pathToString(path))
