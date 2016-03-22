@@ -32,14 +32,6 @@ object attributes {
   }
   implicit val _unixPerms = new Key[UnixPerms]("unix permissions")
 
-  final class NodeType(`type`: String) extends api.ShowSelf {
-    def to_s = `type`
-  }
-  val File = new NodeType("file")
-  val Dir  = new NodeType("dir" )
-  val Link = new NodeType("link")
-  implicit val _nodeType = new api.Key[NodeType]("type of node")
-
   final case class Mtime(timestamp: Long)
   implicit val _mtime = new api.Key[Mtime]("modification time in ...")
 

@@ -8,21 +8,22 @@ package object fs {
     def withMappedPath[T](
       pathFromT: T => underlying.Path,
         pathToT: underlying.Path => T
-    )(implicit F: api.Functor[underlying.M]) = new api.Filesystem {
+    ) = new api.Filesystem {
 
       type Path = T
 
-      type M[A] = underlying.M[A]
       type Name = underlying.Name
-      type Key  = underlying.Key
       type IO   = underlying.IO
 
-      def resolve(path: Path): Key            = underlying resolve pathFromT(path)
-      def metadata(key: Key): M[api.Metadata] = underlying metadata key
-      def lookup(key: Key): M[Data]           = underlying lookup key map {
-        case underlying.Link(path)    => Link(pathToT(path))
-        case underlying.File(io)      => File(io)
-        case underlying.Dir(children) => Dir(children)
+      def resolve(path: Path): api.Metadata = {
+        val metadata = underlying resolve pathFromT(path)
+        val newNode = metadata[underlying.Node] match {
+          case underlying.File(data)   => File(Data(data.io))
+          case underlying.Dir (kids)   => Dir(Data(kids.io mapValues pathToT))
+          case underlying.Link(target) => Link(pathToT(target))
+          case underlying.NoNode       => NoNode
+        }
+        metadata.drop[underlying.Node] set newNode
       }
     }
   }

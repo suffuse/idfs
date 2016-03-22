@@ -34,14 +34,16 @@ trait RootedFs extends FuseFsFull {
   protected def resolvePath(p: String): Path = path(s"$root$p")
   protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripPrefix "/")
 
-  def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    val key = fs resolve path
-    for {
-      fs.File(data) <- fs lookup key
-      totalBytes    =  if (offset + size > data.length) data.length - offset else size
-      _             =  buf.put(data, offset.toInt, totalBytes.toInt)
-    } yield totalBytes.toInt
-  }.toInt
+  def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
+    (fs resolve path)[fs.Node] match {
+      case fs.File(data) =>
+        val totalBytes = if (offset + size > data.io.length) data.io.length - offset else size
+        buf.put(data.io, offset.toInt, totalBytes.toInt)
+        totalBytes.toInt
+
+      case fs.NoNode => doesNotExist
+      case _         => isNotValid
+    }
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
     def impl(): Unit = {
@@ -56,21 +58,25 @@ trait RootedFs extends FuseFsFull {
   def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =
     tryFuse { resolvePath(path).tryLock() }
 
-  def readdir(path: String, filler: DirectoryFiller): Int = {
-    val key = fs resolve path
-    for {
-      fs.Dir(children) <- fs lookup key ensure fs.isDir orElseUse empty[fs.Dir]
-      _                =  children.keys foreach (child => filler add (path + "/" + child))
-    } yield eok
-  }.toInt
+  def readdir(path: String, filler: DirectoryFiller): Int =
+    (fs resolve path)[fs.Node] match {
+      case fs.Dir(kids) =>
+        kids.io.keys foreach (filler add path + "/" + _)
+        eok
 
-  def readlink(path: String, buf: ByteBuffer, size: Long): Int = {
-    val key = fs resolve path
-    for {
-      fs.Link(target) <- fs lookup key ensure fs.isLink orElse NotValid
-      _               =  buf put (target getBytes UTF8)
-    } yield eok
-  }.toInt
+      case fs.NoNode => doesNotExist
+      case _         => eok
+    }
+
+  def readlink(path: String, buf: ByteBuffer, size: Long): Int =
+    (fs resolve path)[fs.Node] match {
+      case fs.Link(target) =>
+        buf put (target getBytes UTF8)
+        eok
+
+      case fs.NoNode => doesNotExist
+      case _         => isNotValid
+    }
 
   def create(path: String, mode: ModeInfo, info: FileInfo): Int = {
     import Node._
@@ -89,13 +95,17 @@ trait RootedFs extends FuseFsFull {
       case f                      => effect(eok)(f.mkdir(mode.mode))
     }
 
-  def getattr(path: String, stat: StatInfo): Int = {
-    val key = fs resolve path
-    for {
-      metadata <- fs metadata key
-      _        <- populateStat(stat, metadata)
-    } yield eok
-  }.toInt
+  def getattr(path: String, stat: StatInfo): Int =
+    (fs resolve path) |> { metadata =>
+      metadata[fs.Node] match {
+        case n @ fs.NoNode =>
+          doesNotExist
+
+        case node =>
+          populateStat(stat, node, metadata)
+          eok
+      }
+    }
 
   def rename(from: String, to: String): Int =
     tryFuse { resolvePath(from) moveTo resolvePath(to) }
@@ -136,23 +146,29 @@ trait RootedFs extends FuseFsFull {
 
   protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
 
-  private def populateStat(stat: StatInfo, metadata: api.Metadata): Result[Unit] = {
+  private def populateStat(stat: StatInfo, node: fs.Node, metadata: api.Metadata) = {
     import api.attributes._
-    for {
-      nodeType    <- metadata fold[NodeType] (ifValue = Success(_), orElse = DoesNotExist)
-    } yield {
+    metadata foreach {
+      case Size(bytes)        => stat size   bytes
+      case Atime(timestamp)   => stat atime  timestamp
+      case Mtime(timestamp)   => stat mtime  timestamp
+      case BlockCount(amount) => stat blocks amount
+      case Uid(value)         => stat uid    value
+      case UnixPerms(mask)    => stat mode   (node.asFuseBits | mask)
+    }
 
-      metadata foreach {
-        case Size(bytes)        => stat size   bytes
-        case Atime(timestamp)   => stat atime  timestamp
-        case Mtime(timestamp)   => stat mtime  timestamp
-        case BlockCount(amount) => stat blocks amount
-        case Uid(value)         => stat uid    value
-        case UnixPerms(mask)    => stat mode   (nodeType.asFuse.getBits | mask)
-      }
+    stat nlink  1
+    stat gid    getGID // XXX huge hassle.
+  }
 
-      stat nlink  1
-      stat gid    getGID // XXX huge hassle.
+  implicit class NodeOps(val node: fs.Node) {
+
+    import api.attributes._
+    def asFuseBits = node match {
+      case fs.File(_) => Node.File.getBits
+      case fs.Dir(_)  => Node.Dir.getBits
+      case fs.Link(_) => Node.Link.getBits
+      case fs.NoNode  => 0L
     }
   }
 

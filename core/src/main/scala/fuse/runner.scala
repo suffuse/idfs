@@ -38,7 +38,7 @@ abstract class FsRunner {
   // clicking different parts together
   private def fuseJavaFs(root: Path) = {
     import fs._
-    new jio.JavaFilesystem(root, effects = new jio.FuseEffects) withMappedPath (path, _.to_s)
+    new jio.JavaFilesystem(root) withMappedPath (path, _.to_s)
   }
 
   class Rooted(val root: Path, val fs: FuseCompatibleFs) extends RootedFs {

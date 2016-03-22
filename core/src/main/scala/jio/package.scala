@@ -49,18 +49,8 @@ package object jio extends DecorateAsScala with DecorateAsJava {
 
     def append(other: Path) = jio.path(path.to_s + other.to_s)
 
-    def permissions: PosixFilePermissions = {
-      val pfp = (Files getPosixFilePermissions (path, NOFOLLOW_LINKS)).asScala
-      import jnfa.PosixFilePermission._
-      PosixFilePermissions(
-        pfp(GROUP_READ) , pfp(GROUP_WRITE) , pfp(GROUP_EXECUTE),
-        pfp(OWNER_READ) , pfp(OWNER_WRITE) , pfp(OWNER_EXECUTE),
-        pfp(OTHERS_READ), pfp(OTHERS_WRITE), pfp(OTHERS_EXECUTE)
-      )
-    }
-
     def setPermissions(bits: Long): Unit =
-      Files.setPosixFilePermissions(path, bitsAsPermissions(bits))
+      Files.setPosixFilePermissions(path, api.attributes.UnixPerms(bits).java)
 
     def setLastModifiedTime(nanoSeconds: Long): Unit =
       Files.setLastModifiedTime(path, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
@@ -94,27 +84,11 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def /(name: String): Rep      = asRep(path resolve name)
 
     def ls: Vector[Rep]           = if (path.nofollow.isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
-    def mkdir(bits: Long): Rep    = asRep(path createDirectory asFileAttribute(bitsAsPermissions(bits)))
-    def mkfile(bits: Long): Rep   = asRep(path createFile asFileAttribute(bitsAsPermissions(bits)))
+    def mkdir(bits: Long): Rep    = asRep(path createDirectory asFileAttribute(api.attributes.UnixPerms(bits).java))
+    def mkfile(bits: Long): Rep   = asRep(path createFile asFileAttribute(api.attributes.UnixPerms(bits).java))
     def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
     def readlink: Rep             = asRep(path.readSymbolicLink)
 
-    def metadata: Metadata = {
-      import jnfa.PosixFilePermission._
-      import api.attributes._
-      val metadata =
-        Metadata(
-          Atime(atime to SECONDS),
-          Mtime(mtime to SECONDS),
-          UnixPerms(toUnixMask(perms)),
-          Uid(uid)
-        )
-
-           if (isFile) metadata set File set Size(path.size) set BlockCount(blockCount)
-      else if (isDir ) metadata set Dir
-      else if (isLink) metadata set Link
-      else metadata
-    }
     def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
     def gid: Int                         = 0 // OMG what a hassle.
     def atime: FileTime                  = basicAttributes.lastAccessTime
@@ -146,19 +120,13 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     def to_s: String         = path.toString
   }
 
-  case class PosixFilePermissions(
-    groupRead: Boolean, groupWrite: Boolean, groupExecute: Boolean,
-    ownerRead: Boolean, ownerWrite: Boolean, ownerExecute: Boolean,
-    otherRead: Boolean, otherWrite: Boolean, otherExecute: Boolean
-  )
-
   def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
   def path: String => Path                      = jnf.Paths get _
   def homeDir: Path                             = path(sys.props("user.home"))
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
 
   implicit class UnixPermsOps(val perms: api.attributes.UnixPerms) extends AnyVal {
-    def java: Set[PosixFilePermission] = perms.bits map UnixToJava
+    def java: jFilePermissions = (perms.bits map UnixToJava).asJava
   }
 
   def toUnixMask(perms: jFilePermissions) =
@@ -180,28 +148,6 @@ package object jio extends DecorateAsScala with DecorateAsJava {
       OTHERS_WRITE,
       OTHERS_EXECUTE
     )
-  }
-
-  def bitsAsPermissions(bits: Long): jFilePermissions = {
-    import jnfa.PosixFilePermission._
-    val permissionBits = Set(
-      (1 << 8, OWNER_READ),
-      (1 << 7, OWNER_WRITE),
-      (1 << 6, OWNER_EXECUTE),
-      (1 << 5, GROUP_READ),
-      (1 << 4, GROUP_WRITE),
-      (1 << 3, GROUP_EXECUTE),
-      (1 << 2, OTHERS_READ),
-      (1 << 1, OTHERS_WRITE),
-      (1 << 0, OTHERS_EXECUTE)
-    )
-    val permissions =
-      permissionBits.foldLeft(Set.empty[PosixFilePermission]) {
-        case (result, (bit, permission)) =>
-          if ((bits & bit) == 0) result
-          else result + permission
-      }
-    permissions.asJava
   }
 
   type jArray[A]        = Array[A with Object]

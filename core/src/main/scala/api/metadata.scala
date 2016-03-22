@@ -95,6 +95,6 @@ object Attribute {
  *  provide when there is no value in the map. This as opposed
  *  to wrapping everything in sight in Option.
  */
-final class Key[A](description: String) extends ShowSelf {
+final class Key[-A](description: String) extends ShowSelf {
   def to_s = description
 }

@@ -3,64 +3,37 @@ package jio
 
 import java.nio.file._
 import javax.naming.SizeLimitExceededException
+import jio._
+import java.util.concurrent.TimeUnit.SECONDS
 
-trait JavaEffects {
-
-  type M[_]
-
-  protected def success[A]: A => M[A]
-
-  def error[A]: Throwable => M[A]
-
-  def success[A](body: => A): M[A] = Try(body) fold (error, success)
-}
-
-class FuseEffects extends JavaEffects {
-  type M[A] = fuse.Result[A]
-
-  def success[A]: A => fuse.Result[A] = fuse.Success[A]
-
-  def error[A]: Throwable => fuse.Result[A] = { t =>
-    println(t)
-    t match{
-      case _: FileAlreadyExistsException    => fuse.AlreadyExists
-      case _: NoSuchFileException           => fuse.DoesNotExist
-      case _: IllegalArgumentException      => fuse.NotValid
-      case _: UnsupportedOperationException => fuse.NotImplemented
-      case _: DirectoryNotEmptyException    => fuse.NotEmpty
-      case _: SizeLimitExceededException    => fuse.TooBig
-      case _: AccessDeniedException         => fuse.AccessDenied
-      case _: jio.IOException               => fuse.InputOutputError
-      case _                                => fuse.InputOutputError
-    }
-  }
-}
-
-class JavaFilesystem[E <: JavaEffects](root: Path, val effects: E) extends api.Filesystem {
-  type M[A] = effects.M[A]
+class JavaFilesystem(root: Path) extends api.Filesystem {
   type Path = jio.Path
   type Name = String
-  type Key  = jio.Path
   type IO   = Array[Byte]
 
-  import effects._
+  def resolve(path: Path): api.Metadata =
+    try {
+      root append path match {
+        case path if path.nofollow.exists =>
+          import api.attributes._
+          val metadata =
+            api.Metadata(
+              Atime(path.atime to SECONDS),
+              Mtime(path.mtime to SECONDS),
+              UnixPerms(toUnixMask(path.perms)),
+              Uid(path.uid)
+            )
 
-  def resolve(path: Path): Key = root append path
+               if (path.isFile) metadata set File(Data(path.readAllBytes)) set Size(path.size) set BlockCount(path.blockCount)
+          else if (path.isDir ) metadata set Dir(Data(path.ls.map(p => p.filename -> p).toMap)) set Size(path.size)
+          else if (path.isLink) metadata set Link(path.readlink)
+          else metadata
 
-  def metadata(key: Key): M[api.Metadata] =
-    key match {
-      case path if path.nofollow.exists => success(path.metadata)
-      case path                         => error(notFound(path))
+        case _ => api.Metadata
+      }
+    } catch { case t: Throwable =>
+      println("You have found a bug, please check the stacktrace to figure out what causes it")
+      t.printStackTrace()
+      api.Metadata
     }
-
-  def lookup(key: Key): M[Data] =
-    key match {
-      case path if !path.nofollow.exists  => error(notFound(path))
-      case path if  path.isFile           => success(File(path.readAllBytes))
-      case path if  path.isDir            => success(Dir(path.ls.map(path => path.filename -> path).toMap))
-      case path if  path.isLink           => success(Link(path.readlink))
-      case path                           => error(new IOException("unknown data type at " + path))
-    }
-
-  private def notFound(path: Path) = new NoSuchFileException(path.to_s)
 }
