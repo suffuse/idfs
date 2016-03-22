@@ -21,7 +21,7 @@ class FuseEffects extends JavaEffects {
   def success[A]: A => fuse.Result[A] = fuse.Success[A]
 
   def error[A]: Throwable => fuse.Result[A] = { t =>
-    println(t)
+    // log(t)
     t match{
       case _: FileAlreadyExistsException    => fuse.AlreadyExists
       case _: NoSuchFileException           => fuse.DoesNotExist
