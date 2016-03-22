@@ -17,7 +17,6 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
   val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
 
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
-  def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
   def homeDir: Path                             = path(sys.props("user.home"))
   def jList[A](xs: A*): jList[A]                = doto(new java.util.ArrayList[A])(xs foreach _.add)
   def jSet[A](xs: A*): jSet[A]                  = doto(new java.util.HashSet[A])(xs foreach _.add)

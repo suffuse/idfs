@@ -1,11 +1,6 @@
 package sfs
 package jio
 
-import java.nio.file._
-import javax.naming.SizeLimitExceededException
-import jio._
-import java.util.concurrent.TimeUnit.SECONDS
-
 class JavaFilesystem(root: Path) extends api.Filesystem {
 
   type Path = jio.Path
