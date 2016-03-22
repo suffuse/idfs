@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 #
 
-sbt "runMain sfs.fuse.idfs $*"
+sbt "runMain sfs.fresh.idfs $*"
