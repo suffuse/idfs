@@ -5,6 +5,7 @@ import java.nio.{ file => jnf }
 import jnf.{ Files => F }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import jnf.FileVisitOption.FOLLOW_LINKS
+import api._
 
 // LinkOption <: ( CopyOption, OpenOption )
 //

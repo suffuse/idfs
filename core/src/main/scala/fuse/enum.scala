@@ -7,7 +7,6 @@ import jio._
  */
 object Node {
   import net.fusejna.types.TypeMode.NodeType
-
   final val BlockDev = NodeType.BLOCK_DEVICE
   final val Dir      = NodeType.DIRECTORY
   final val Fifo     = NodeType.FIFO

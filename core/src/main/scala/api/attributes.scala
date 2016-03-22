@@ -2,8 +2,12 @@ package sfs
 package api
 
 object attributes {
-
   // underscore on implicits to prevent shadowing
+
+  abstract class FileTimeBased[This](create: FileTime => This) {
+    def timestamp: FileTime
+    def +(amount: Duration): This = create(timestamp + amount)
+  }
 
   final case class UnixPerms(mask: Long) {
     import UnixPerms._
@@ -13,7 +17,7 @@ object attributes {
     override def toString = permString(mask)
   }
   object UnixPerms {
-    lazy val Bits = Vector[Long](
+    val Bits = Vector[Long](
       1 << 8,
       1 << 7,
       1 << 6,
@@ -24,8 +28,8 @@ object attributes {
       1 << 1,
       1 << 0
     )
-    private lazy val BitsSet: Set[Long]    = Bits.toSet
-    private lazy val Letters: Vector[Char] = "rwxrwxrwx".toVector
+    private val BitsSet: Set[Long]    = Bits.toSet
+    private val Letters: Vector[Char] = "rwxrwxrwx".toVector
 
     private def permString(mask: Long): String =
       ( for ((perm, ch) <- Bits zip Letters) yield if ((mask & perm) == 0) '-' else ch ) mkString ""
@@ -35,15 +39,18 @@ object attributes {
   final class NodeType(`type`: String) extends api.ShowSelf {
     def to_s = `type`
   }
-  val File = new NodeType("file")
-  val Dir  = new NodeType("dir" )
-  val Link = new NodeType("link")
   implicit val _nodeType = new api.Key[NodeType]("type of node")
 
-  final case class Mtime(timestamp: Long)
+  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](x => Mtime(x)) {
+    override def hashCode = timestamp.toMillis.##
+    override def equals(that: Any) = that match {
+      case Mtime(other) => timestamp.toMillis == other.toMillis
+      case _            => super.equals(that)
+    }
+  }
   implicit val _mtime = new api.Key[Mtime]("modification time in ...")
 
-  final case class Atime(timestamp: Long)
+  final case class Atime(timestamp: FileTime)
   implicit val _atime = new api.Key[Atime]("access time in ...")
 
   final case class Size(bytes: Long)
@@ -54,4 +61,8 @@ object attributes {
 
   final case class BlockCount(amount: Long)
   implicit val _blockCount = new api.Key[BlockCount]("number of blocks")
+
+  val File = new NodeType("file")
+  val Dir  = new NodeType("dir" )
+  val Link = new NodeType("link")
 }

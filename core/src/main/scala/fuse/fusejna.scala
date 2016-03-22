@@ -1,8 +1,7 @@
 package sfs
 package fuse
 
-import jio._
-import java.util.concurrent.TimeUnit.SECONDS
+import jio._, api._
 
 /** Forwarding filesystem which only passes through paths which match the filter.
  */
@@ -118,7 +117,7 @@ trait RootedFs extends FuseFsFull {
   // chmod calls to a link are applied to the link target.
   def chmod(path: String, mode: ModeInfo): Int =
     resolvePath(path) match {
-      case p if p.follow.exists => effect(eok)(p.setPermissions(mode.mode))
+      case p if p.follow.exists => effect(eok)(p setPosixFilePermissions bitsAsPermissions(mode.mode))
       case _                    => doesNotExist()
     }
 
@@ -132,7 +131,7 @@ trait RootedFs extends FuseFsFull {
     tryFuse { effect(eok)(resolvePath(path) truncate size) }
 
   def utimens(path: String, wrapper: TimeBufferWrapper) =
-    tryFuse(resolvePath(path) setLastModifiedTime wrapper.mod_nsec)
+    tryFuse(resolvePath(path) setLastModifiedTime FileTime.nanos(wrapper.mod_nsec))
 
   protected def pathBytes(path: Path): Array[Byte] = path.readAllBytes
 
@@ -144,8 +143,8 @@ trait RootedFs extends FuseFsFull {
 
       metadata foreach {
         case Size(bytes)        => stat size   bytes
-        case Atime(timestamp)   => stat atime  timestamp
-        case Mtime(timestamp)   => stat mtime  timestamp
+        case Atime(timestamp)   => stat atime  timestamp.inSeconds
+        case Mtime(timestamp)   => stat mtime  timestamp.inSeconds
         case BlockCount(amount) => stat blocks amount
         case Uid(value)         => stat uid    value
         case UnixPerms(mask)    => stat mode   (nodeType.asFuse.getBits | mask)
