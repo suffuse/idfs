@@ -6,20 +6,22 @@ import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
-import jnfa.PosixFilePermissions.asFileAttribute
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeUnit.SECONDS
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
-import api._
+import api._, attributes.Mtime, attributes.UnixPerms.toBitSet
 
-package object jio extends DecorateAsScala with DecorateAsJava {
+package object jio extends DecorateAsScala with DecorateAsJava with Alias {
   val UTF8          = java.nio.charset.Charset forName "UTF-8"
   val UnixUserClass = Class.forName("sun.nio.fs.UnixUserPrincipals$User")
   val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
 
-  def jList[A](xs: A*): jList[A] = doto(new java.util.ArrayList[A])(xs foreach _.add)
-  def jSet[A](xs: A*): jSet[A]   = doto(new java.util.HashSet[A])(xs foreach _.add)
+  def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
+  def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
+  def homeDir: Path                             = path(sys.props("user.home"))
+  def jList[A](xs: A*): jList[A]                = doto(new java.util.ArrayList[A])(xs foreach _.add)
+  def jSet[A](xs: A*): jSet[A]                  = doto(new java.util.HashSet[A])(xs foreach _.add)
+  def path: String => Path                      = jnf.Paths get _
 
   implicit class JioFilesInstanceOps(path: Path) extends JioFilesInstance(path)
 
@@ -49,12 +51,6 @@ package object jio extends DecorateAsScala with DecorateAsJava {
 
     def append(other: Path) = jio.path(path.to_s + other.to_s)
 
-    def setPermissions(bits: Long): Unit =
-      Files.setPosixFilePermissions(path, api.attributes.UnixPerms(bits).java)
-
-    def setLastModifiedTime(nanoSeconds: Long): Unit =
-      Files.setLastModifiedTime(path, jnfa.FileTime.from(nanoSeconds, TimeUnit.NANOSECONDS))
-
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
     def truncate(size: Long): Unit = withWriteChannel {
       case c if c.size > size => c truncate size
@@ -77,57 +73,7 @@ package object jio extends DecorateAsScala with DecorateAsJava {
     }
   }
 
-  trait Pathish[Rep] {
-    def path: Path
-    def asRep(p: Path): Rep
-
-    def /(name: String): Rep      = asRep(path resolve name)
-
-    def ls: Vector[Rep]           = if (path.nofollow.isDirectory) withDirStream(path)(_.toVector map asRep) else Vector()
-    def mkdir(bits: Long): Rep    = asRep(path createDirectory asFileAttribute(api.attributes.UnixPerms(bits).java))
-    def mkfile(bits: Long): Rep   = asRep(path createFile asFileAttribute(api.attributes.UnixPerms(bits).java))
-    def mklink(target: Path): Rep = asRep(path createSymbolicLink target)
-    def readlink: Rep             = asRep(path.readSymbolicLink)
-
-    def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
-    def gid: Int                         = 0 // OMG what a hassle.
-    def atime: FileTime                  = basicAttributes.lastAccessTime
-    def ctime: FileTime                  = basicAttributes.creationTime
-    def group: GroupPrincipal            = posixAttributes.group
-    def inum: Object                     = basicAttributes.fileKey
-    def mtime: FileTime                  = basicAttributes.lastModifiedTime
-    def owner: UserPrincipal             = posixAttributes.owner
-    def perms: jSet[PosixFilePermission] = posixAttributes.permissions
-
-    def isDir: Boolean   = path.nofollow.isDirectory
-    def isFile: Boolean  = path.nofollow.isRegularFile
-    def isLink: Boolean  = path.isSymbolicLink
-    def isOther: Boolean = basicAttributes.isOther
-
-    private def withDirStream[A](dir: Path)(code: jStream[Path] => A): A =
-      (Files list dir) |> (str => try code(str) finally str.close())
-
-    def attributes[A <: BasicFileAttributes : CTag](): Try[A] = Try(path.nofollow readAttributes classOf[A])
-    def posixAttributes: PosixFileAttributes                  = attributes[PosixFileAttributes] | ??? // FIXME
-    def basicAttributes: BasicFileAttributes                  = attributes[BasicFileAttributes] | ??? // FIXME
-
-    def blockCount: Long     = (path.size + blockSize - 1) / blockSize
-    def blockSize: Long      = 512 // FIXME
-    def depth: Int           = path.getNameCount
-    def filename: String     = path.getFileName.to_s
-    def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
-    def moveTo(target: Path) = path.nofollow move target
-    def to_s: String         = path.toString
-  }
-
-  def file(s: String, ss: String*): File        = ss.foldLeft(new File(s))(new File(_, _))
-  def path: String => Path                      = jnf.Paths get _
-  def homeDir: Path                             = path(sys.props("user.home"))
-  def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
-
-  implicit class UnixPermsOps(val perms: api.attributes.UnixPerms) extends AnyVal {
-    def java: jFilePermissions = (perms.bits map UnixToJava).asJava
-  }
+  def toJavaPermissions(mask: Long): jFilePermissions = (toBitSet(mask) map UnixToJava).asJava
 
   def toUnixMask(perms: jFilePermissions) =
     ( perms.asScala map JavaToUnix ).foldLeft(0L)(_ | _)
@@ -149,57 +95,4 @@ package object jio extends DecorateAsScala with DecorateAsJava {
       OTHERS_EXECUTE
     )
   }
-
-  type jArray[A]        = Array[A with Object]
-  type jClass           = java.lang.Class[_]
-  type jField           = java.lang.reflect.Field
-  type jFilePermissions = jSet[PosixFilePermission]
-  type jIterable[+A]    = java.lang.Iterable[A @uV]
-  type jIterator[+A]    = java.util.Iterator[A @uV]
-  type jLineIterable    = jIterable[_ <: CharSequence]
-  type jList[A]         = java.util.List[A]
-  type jMap[K, V]       = java.util.Map[K, V]
-  type jMethod          = java.lang.reflect.Method
-  type jSet[A]          = java.util.Set[A]
-  type jStream[+A]      = java.util.stream.Stream[A @uV]
-  type jUri             = java.net.URI
-  type jUrl             = java.net.URL
-
-  type CopyOption          = jnf.CopyOption
-  type DirStreamFilter[A]  = jnf.DirectoryStream.Filter[A]
-  type FileStore           = jnf.FileStore
-  type FileSystem          = jnf.FileSystem
-  type FileSystemProvider  = jnf.spi.FileSystemProvider
-  type FileVisitOption     = jnf.FileVisitOption
-  type FileVisitor[A]      = jnf.FileVisitor[A]
-  type LinkOption          = jnf.LinkOption
-  type OpenOption          = jnf.OpenOption
-  type Path                = jnf.Path
-  type PathDirStream       = jnf.DirectoryStream[Path]
-  type NoSuchFileException = jnf.NoSuchFileException
-
-  type AnyFileAttr         = jnfa.FileAttribute[_]
-  type BasicFileAttributes = jnfa.BasicFileAttributes
-  type FileAttributeView   = jnfa.FileAttributeView
-  type FileAttribute[A]    = jnfa.FileAttribute[A]
-  type FileTime            = jnfa.FileTime
-  type GroupPrincipal      = jnfa.GroupPrincipal
-  type PosixFileAttributes = jnfa.PosixFileAttributes
-  type PosixFilePermission = jnfa.PosixFilePermission
-  type UserPrincipal       = jnfa.UserPrincipal
-
-  type BufferedInputStream  = java.io.BufferedInputStream
-  type BufferedReader       = java.io.BufferedReader
-  type BufferedWriter       = java.io.BufferedWriter
-  type ByteArrayInputStream = java.io.ByteArrayInputStream
-  type ByteBuffer           = java.nio.ByteBuffer
-  type Charset              = java.nio.charset.Charset
-  type File                 = java.io.File
-  type FileChannel          = jnc.FileChannel
-  type FileInputStream      = java.io.FileInputStream
-  type FileOutputStream     = java.io.FileOutputStream
-  type IOException          = java.io.IOException
-  type InputStream          = java.io.InputStream
-  type OutputStream         = java.io.OutputStream
-  type SeekableByteChannel  = jnc.SeekableByteChannel
 }

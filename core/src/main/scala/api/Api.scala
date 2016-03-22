@@ -1,13 +1,17 @@
 package sfs
 package api
 
+import java.util.concurrent.TimeUnit
+
 trait Api {
+  type =?>[-A, +B] = scala.PartialFunction[A, B]
   type Buf         = java.nio.ByteBuffer
+  type CTag[A]     = scala.reflect.ClassTag[A]
+  type Duration    = scala.concurrent.duration.Duration
+  type FileTime    = java.nio.file.attribute.FileTime
+  type Iso[A]      = A => A
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
-  type =?>[-A, +B] = scala.PartialFunction[A, B]
-  type Iso[A]      = A => A
-  type CTag[A]     = scala.reflect.ClassTag[A]
 
   def unit = ()
 

@@ -7,6 +7,7 @@ import jio._
 import java.util.concurrent.TimeUnit.SECONDS
 
 class JavaFilesystem(root: Path) extends api.Filesystem {
+
   type Path = jio.Path
   type Name = String
   type IO   = Array[Byte]
@@ -18,8 +19,8 @@ class JavaFilesystem(root: Path) extends api.Filesystem {
           import api.attributes._
           val metadata =
             api.Metadata(
-              Atime(path.atime to SECONDS),
-              Mtime(path.mtime to SECONDS),
+              Atime(path.atime),
+              Mtime(path.mtime),
               UnixPerms(toUnixMask(path.perms)),
               Uid(path.uid)
             )

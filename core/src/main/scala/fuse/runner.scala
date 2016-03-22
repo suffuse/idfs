@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import jio._
+import jio._, api._
 
 object idfs extends FsRunner {
   def runMain = { case Array(from, to) =>

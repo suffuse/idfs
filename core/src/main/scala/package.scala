@@ -2,7 +2,7 @@ import scala.util.{ Success, Failure }
 import scala.sys.process.{ Process, ProcessLogger }
 import sfs.api._
 
-package object sfs extends sfs.api.Api {
+package object sfs {
 
   // For example statsBy(path("/usr/bin").ls)(_.mediaType.subtype)
   //
