@@ -42,14 +42,8 @@ package object fuse {
     case _    => Vector("-o", "direct_io,default_permissions")
   }
 
-  implicit class FuseFilesystemOps(val fs: FuseFilesystem) {
-    def filter(p: String => Boolean): FuseFs    = new FilteredFs(fs, p)
-    def filterNot(p: String => Boolean): FuseFs = new FilteredFs(fs, x => !p(x))
-  }
-
   type FuseCompatibleFs = api.Filesystem {
     type Path = String
-    type Name = String
     type IO   = Array[Byte]
   }
 

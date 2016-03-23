@@ -3,17 +3,6 @@ package fuse
 
 import jio._, api._
 
-/** Forwarding filesystem which only passes through paths which match the filter.
- */
-class FilteredFs(val underlying: FuseFilesystem, cond: String => Boolean) extends ForwarderFs {
-  class Filter(filler: DirectoryFiller) extends DirectoryFiller {
-    def add(files: jIterable[String]): Boolean = filler add (files.asScala filter cond).asJava
-    def add(files: String*): Boolean           = filler add (files filter cond).asJava
-  }
-  override def readdir(path: String, df: DirectoryFiller): Int =
-    underlying.readdir(path, new Filter(df))
-}
-
 abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
 }
@@ -299,54 +288,4 @@ trait FuseFs extends FuseFilesystem {
   def options: Vector[String] = fuse.defaultOptions
   def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
   def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
-}
-
-/** This makes it easy to modify or extends the behavior of an existing
- *  filesystem instance by overriding a small handful of methods.
- */
-abstract class ForwarderFs extends FuseFs {
-  protected def underlying: FuseFilesystem
-
-  /** The non-path methods. */
-  def afterUnmount(mountPoint: File): Unit = underlying.afterUnmount(mountPoint)
-  def beforeMount(mountPoint: File): Unit  = underlying.beforeMount(mountPoint)
-  def destroy(): Unit                      = underlying.destroy()
-  def getName(): String                    = getClass.shortName
-  def init(): Unit                         = underlying.init()
-
-  /** Conceptually these are all instance methods of a path. */
-  def access(path: String, access: Int): Int                                                   = underlying.access(path, access)
-  def bmap(path: String, info: FileInfo): Int                                                  = underlying.bmap(path, info)
-  def chmod(path: String, mode: ModeInfo): Int                                                 = underlying.chmod(path, mode)
-  def chown(path: String, uid: Long, gid: Long): Int                                           = underlying.chown(path, uid, gid)
-  def create(path: String, mode: ModeInfo, info: FileInfo): Int                                = underlying.create(path, mode, info)
-  def fgetattr(path: String, stat: StatInfo, info: FileInfo): Int                              = underlying.fgetattr(path, stat, info)
-  def flush(path: String, info: FileInfo): Int                                                 = underlying.flush(path, info)
-  def fsync(path: String, datasync: Int, info: FileInfo): Int                                  = underlying.fsync(path, datasync, info)
-  def fsyncdir(path: String, datasync: Int, info: FileInfo): Int                               = underlying.fsyncdir(path, datasync, info)
-  def ftruncate(path: String, offset: Long, info: FileInfo): Int                               = underlying.ftruncate(path, offset, info)
-  def getattr(path: String, stat: StatInfo): Int                                               = underlying.getattr(path, stat)
-  def getxattr(path: String, xattr: String, filler: XattrFiller, size: Long, pos: Long): Int   = underlying.getxattr(path, xattr, filler, size, pos)
-  def link(path: String, target: String): Int                                                  = underlying.link(path, target)
-  def listxattr(path: String, filler: XattrListFiller): Int                                    = underlying.listxattr(path, filler)
-  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int      = underlying.lock(path, info, command, flock)
-  def mkdir(path: String, mode: ModeInfo): Int                                                 = underlying.mkdir(path, mode)
-  def mknod(path: String, mode: ModeInfo, dev: Long): Int                                      = underlying.mknod(path, mode, dev)
-  def open(path: String, info: FileInfo): Int                                                  = underlying.open(path, info)
-  def opendir(path: String, info: FileInfo): Int                                               = underlying.opendir(path, info)
-  def read(path: String, buffer: Buf, size: Long, offset: Long, info: FileInfo): Int           = underlying.read(path, buffer, size, offset, info)
-  def readdir(path: String, filler: DirectoryFiller): Int                                      = underlying.readdir(path, filler)
-  def readlink(path: String, buffer: Buf, size: Long): Int                                     = underlying.readlink(path, buffer, size)
-  def release(path: String, info: FileInfo): Int                                               = underlying.release(path, info)
-  def releasedir(path: String, info: FileInfo): Int                                            = underlying.releasedir(path, info)
-  def removexattr(path: String, xattr: String): Int                                            = underlying.removexattr(path, xattr)
-  def rename(path: String, newName: String): Int                                               = underlying.rename(path, newName)
-  def rmdir(path: String): Int                                                                 = underlying.rmdir(path)
-  def setxattr(path: String, xattr: String, value: Buf, size: Long, flags: Int, pos: Int): Int = underlying.setxattr(path, xattr, value, size, flags, pos)
-  def statfs(path: String, wrapper: StatvfsWrapper): Int                                       = underlying.statfs(path, wrapper)
-  def symlink(path: String, target: String): Int                                               = underlying.symlink(path, target)
-  def truncate(path: String, offset: Long): Int                                                = underlying.truncate(path, offset)
-  def unlink(path: String): Int                                                                = underlying.unlink(path)
-  def utimens(path: String, wrapper: TimeBufferWrapper): Int                                   = underlying.utimens(path, wrapper)
-  def write(path: String, buf: Buf, bufSize: Long, writeOffset: Long, info: FileInfo): Int     = underlying.write(path, buf, bufSize, writeOffset, info)
 }

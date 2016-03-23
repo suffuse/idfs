@@ -10,6 +10,7 @@ trait Api {
   type Duration    = scala.concurrent.duration.Duration
   type FileTime    = java.nio.file.attribute.FileTime
   type Iso[A]      = A => A
+  type Name        = String
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
 

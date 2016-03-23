@@ -40,7 +40,8 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
 
   def only[A : Key : Empty] = new Only[A]
   class Only[A : Key : Empty] {
-    def map(f: A => A): Metadata             = md set f(apply[A])
+    def map[B : Key](f: A => B): Metadata    = md.drop[A] set f(apply[A])
+    def mapOnly(f: A =?> A): Metadata        = map(x => if (f isDefinedAt x) f(x) else x)
     def flatMap(f: A => Option[A]): Metadata = f(md[A]()).fold(md)(md set _)
     def filter(p: A => Boolean): Metadata    = if (has[A] && !p(md[A])) md.drop[A] else md
   }

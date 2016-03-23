@@ -1,30 +1,51 @@
 package sfs
 
+import api._
+
 package object fs {
 
   // This file exists to experiment with transforming parts of the file system, in this case the Path
-  implicit class Wrapped[FS <: api.Filesystem](val underlying: FS) {
+  implicit class Wrapped[FS <: Filesystem](val fs: FS) {
 
-    def withMappedPath[T](
-      pathFromT: T => underlying.Path,
-        pathToT: underlying.Path => T
-    ) = new api.Filesystem {
+    import fs._
 
-      type Path = T
+    def map(f: Metadata => Metadata) =
+      new Filesystem {
+        type Path = fs.Path
+        type IO   = fs.IO
 
-      type Name = underlying.Name
-      type IO   = underlying.IO
-
-      def resolve(path: Path): api.Metadata = {
-        val metadata = underlying resolve pathFromT(path)
-        val newNode = metadata[underlying.Node] match {
-          case underlying.File(data)   => File(Data(data.io))
-          case underlying.Dir (kids)   => Dir(Data(kids.io mapValues pathToT))
-          case underlying.Link(target) => Link(pathToT(target))
-          case underlying.NoNode       => NoNode
-        }
-        metadata.drop[underlying.Node] set newNode
+        def resolve(path: Path) =
+          f(fs resolve path).only[fs.Node] map {
+            case fs.File(data)   => File(Data(data.io))
+            case fs.Dir (kids)   => Dir(Data(kids.io))
+            case fs.Link(target) => Link(target)
+            case fs.NoNode       => NoNode
+          }
       }
+
+    def contraMap[T](toNewPath: fs.Path => T, fromNewPath: T => fs.Path) =
+      new Filesystem {
+        type Path = T
+        type IO   = fs.IO
+
+        def resolve(path: Path) =
+          (fs resolve fromNewPath(path)).only[fs.Node] map {
+            case fs.File(data)   => File(Data(data.io))
+            case fs.Dir (kids)   => Dir(Data(kids.io mapValues toNewPath))
+            case fs.Link(target) => Link(toNewPath(target))
+            case fs.NoNode       => NoNode
+          }
+      }
+
+    def withMappedPath[T](toNewPath: Path => T, fromNewPath: T => Path) =
+      contraMap(toNewPath, fromNewPath)
+
+    def mapNode(f: fs.Node =?> fs.Node) = map(_.only[fs.Node] mapOnly f)
+
+    def filter(p: fs.Path => Boolean) = mapNode {
+      case dir: fs.Dir => dir filter p
     }
+    def filterNot(p: fs.Path => Boolean) = filter(x => !p(x))
+
   }
 }

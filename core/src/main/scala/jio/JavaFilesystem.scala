@@ -1,10 +1,9 @@
 package sfs
 package jio
 
-class JavaFilesystem(root: Path) extends api.Filesystem {
+class JavaFilesystem(root: jio.Path) extends api.Filesystem {
 
   type Path = jio.Path
-  type Name = String
   type IO   = Array[Byte]
 
   def resolve(path: Path): api.Metadata =
@@ -25,7 +24,8 @@ class JavaFilesystem(root: Path) extends api.Filesystem {
           else if (path.isLink) metadata set Link(path.readlink)
           else metadata
 
-        case _ => api.Metadata
+        case _ =>
+          api.Metadata
       }
     } catch { case t: Throwable =>
       println("You have found a bug, please check the stacktrace to figure out what causes it")

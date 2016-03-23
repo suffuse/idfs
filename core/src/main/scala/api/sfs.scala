@@ -4,11 +4,9 @@ package api
 trait Filesystem {
 
   /** A Path is a serialization of the steps one must take from
-   *  the root to a particular node in the tree. A Name is a single
-   *  directed edge of the graph.
+   *  the root to a particular node in the tree.
    */
   type Path
-  type Name
 
   /** Some means of performing I/O on a virtualized file.
    */
@@ -31,14 +29,18 @@ trait Filesystem {
     def apply[A](fetch: => A) = new Data(fetch)
   }
 
-  sealed trait Node                                   extends AnyRef
-  final case class  File(data: Data[IO])              extends Node
-  final case class  Dir (kids: Data[Map[Name, Path]]) extends Node
-  final case class  Link(target: Path)                extends Node
-  final case object NoNode                            extends Node
-
+  sealed trait Node extends AnyRef
   object Node {
     implicit val _data = new Key[Node]("node")
     implicit def _empty: Empty[Node] = Empty(NoNode)
+  }
+  final case object NoNode                            extends Node
+  final case class  Link(target: Path)                extends Node
+  final case class  File(data: Data[IO])              extends Node
+  // kids are wrapped in data because the one retrieving the metadata of the dir
+  // might not have access to the kids
+  final case class  Dir (kids: Data[Map[Name, Path]]) extends Node {
+    def filter(p: Path => Boolean): Dir =
+      Dir(Data(kids.io filter { case (_, path) => p(path) }))
   }
 }
