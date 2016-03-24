@@ -10,7 +10,7 @@ trait Filesystem {
 
   /** Some means of performing I/O on a virtualized file.
    */
-  type IO
+  type Data
 
   /** There are a number of ways we could arrange the "primitives"
    *  here. The most important thing is to retain the decoupling at
@@ -19,14 +19,13 @@ trait Filesystem {
    */
   def resolve(path: Path): Metadata
 
-  // not the way to go, but adding a 'wrapping' data type
-  // should be `Eval` like, you probably have something
-  // lying around for this
-  sealed class Data[A](fetch: => A) {
-    lazy val io = fetch
+  // not the way to go, but adding a 'wrapping' data type for
+  // laziness, you probably have something lying around for this
+  sealed class Lazy[A](fetch: => A) {
+    lazy val get = fetch
   }
-  object Data {
-    def apply[A](fetch: => A) = new Data(fetch)
+  object Lazy {
+    def apply[A](fetch: => A) = new Lazy(fetch)
   }
 
   sealed trait Node extends AnyRef
@@ -36,11 +35,18 @@ trait Filesystem {
   }
   final case object NoNode                            extends Node
   final case class  Link(target: Path)                extends Node
-  final case class  File(data: Data[IO])              extends Node
+  final case class  File(data: Lazy[Data])            extends Node
   // kids are wrapped in data because the one retrieving the metadata of the dir
   // might not have access to the kids
-  final case class  Dir (kids: Data[Map[Name, Path]]) extends Node {
+  final case class  Dir (kids: Lazy[Map[Name, Path]]) extends Node {
     def filter(p: Path => Boolean): Dir =
-      Dir(Data(kids.io filter { case (_, path) => p(path) }))
+      Dir(Lazy(kids.get filter { case (_, path) => p(path) }))
+  }
+
+  object File extends (Lazy[Data] => File) {
+    def apply(data: => Data): File = File(Lazy(data))
+  }
+  object Dir extends (Lazy[Map[Name, Path]] => Dir) {
+    def apply(kids: => Map[Name, Path]): Dir = Dir(Lazy(kids))
   }
 }

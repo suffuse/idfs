@@ -44,7 +44,7 @@ package object fuse {
 
   type FuseCompatibleFs = api.Filesystem {
     type Path = String
-    type IO   = Array[Byte]
+    type Data = Array[Byte]
   }
 
   type DirectoryFiller   = net.fusejna.DirectoryFiller

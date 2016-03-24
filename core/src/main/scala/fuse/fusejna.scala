@@ -25,8 +25,8 @@ trait RootedFs extends FuseFsFull {
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
     (fs resolve path)[fs.Node] match {
       case fs.File(data) =>
-        val totalBytes = if (offset + size > data.io.length) data.io.length - offset else size
-        buf.put(data.io, offset.toInt, totalBytes.toInt)
+        val totalBytes = if (offset + size > data.get.length) data.get.length - offset else size
+        buf.put(data.get, offset.toInt, totalBytes.toInt)
         totalBytes.toInt
 
       case fs.NoNode => doesNotExist
@@ -49,7 +49,7 @@ trait RootedFs extends FuseFsFull {
   def readdir(path: String, filler: DirectoryFiller): Int =
     (fs resolve path)[fs.Node] match {
       case fs.Dir(kids) =>
-        kids.io.keys foreach (filler add path + "/" + _)
+        kids.get.keys foreach (filler add path + "/" + _)
         eok
 
       case fs.NoNode => doesNotExist

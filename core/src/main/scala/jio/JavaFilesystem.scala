@@ -4,7 +4,7 @@ package jio
 class JavaFilesystem(root: jio.Path) extends api.Filesystem {
 
   type Path = jio.Path
-  type IO   = Array[Byte]
+  type Data = Array[Byte]
 
   def resolve(path: Path): api.Metadata =
     try {
@@ -19,8 +19,8 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
               Uid(path.uid)
             )
 
-               if (path.isFile) metadata set File(Data(path.readAllBytes)) set Size(path.size) set BlockCount(path.blockCount)
-          else if (path.isDir ) metadata set Dir(Data(path.ls.map(p => p.filename -> p).toMap)) set Size(path.size)
+               if (path.isFile) metadata set File(path.readAllBytes) set Size(path.size) set BlockCount(path.blockCount)
+          else if (path.isDir ) metadata set Dir (path.ls.map(p => p.filename -> p).toMap) set Size(path.size)
           else if (path.isLink) metadata set Link(path.readlink)
           else metadata
 
