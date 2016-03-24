@@ -5,11 +5,16 @@ import java.util.concurrent.TimeUnit
 
 trait Api {
   type =?>[-A, +B] = scala.PartialFunction[A, B]
+  type Attribute   = metadata.Attribute
+  val  Attribute   = metadata.Attribute
   type Buf         = java.nio.ByteBuffer
   type CTag[A]     = scala.reflect.ClassTag[A]
   type Duration    = scala.concurrent.duration.Duration
   type FileTime    = java.nio.file.attribute.FileTime
   type Iso[A]      = A => A
+  type Key[A]      = metadata.KeyDefinition[A]
+  type Metadata    = metadata.Metadata
+  val  Metadata    = metadata.Metadata
   type Name        = String
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
