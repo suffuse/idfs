@@ -36,7 +36,7 @@ trait Filesystem {
   final case object NoNode                            extends Node
   final case class  Link(target: Path)                extends Node
   final case class  File(data: Lazy[Data])            extends Node
-  // kids are wrapped in data because the one retrieving the metadata of the dir
+  // kids are wrapped in lazy because the one retrieving the metadata of the dir
   // might not have access to the kids
   final case class  Dir (kids: Lazy[Map[Name, Path]]) extends Node {
     def filter(p: Path => Boolean): Dir =
