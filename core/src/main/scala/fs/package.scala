@@ -4,8 +4,12 @@ import api._
 
 package object fs {
 
+  implicit def Wrapped(u: Filesystem) = new Wrapped { val fs: u.type = u }
+
   // This file exists to experiment with transforming parts of the file system, in this case the Path
-  implicit class Wrapped[FS <: Filesystem](val fs: FS) {
+  trait Wrapped {
+
+    val fs: Filesystem
 
     import fs._
 

@@ -15,12 +15,16 @@ object filterfs extends FsRunner {
   }
 }
 object reversefs extends FsRunner {
-  trait Reverser extends RootedFs {
-    override protected def pathBytes(path: Path): Array[Byte] =
-      super.pathBytes(path).reverse
-  }
+
   def runMain = { case Array(from, to) =>
-    start(new Rooted(from) with Reverser, to)
+    val rooted = new Rooted(from)
+    import rooted.fs
+    start(
+      rooted.mapNode {
+        case fs.File(data) => fs.File(data.get.reverse)
+      },
+      to
+    )
   }
 }
 
@@ -36,7 +40,7 @@ abstract class FsRunner {
   def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground path(mountPoint)
 
   // clicking different parts together
-  private def fuseJavaFs(root: Path) =
+  def fuseJavaFs(root: Path) =
     new jio.JavaFilesystem(root) withMappedPath (_.to_s, path)
 
   class Rooted(val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
@@ -45,6 +49,7 @@ abstract class FsRunner {
     def getName = name
 
     def filterNot(p: String => Boolean) = new Rooted(root, fs filterNot p)
+    def mapNode(f: fs.Node =?> fs.Node) = new Rooted(root, fs mapNode f)
   }
 
   def main(args: Array[String]): Unit = {
