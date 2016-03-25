@@ -7,6 +7,11 @@ import api._
 
 package object fuse {
 
+  type FuseCompatibleFs = api.Filesystem {
+    type Path = String
+    type Data = Array[Byte]
+  }
+
   def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
 
   def alreadyExists()  = -EEXIST
@@ -40,11 +45,6 @@ package object fuse {
   def defaultOptions: Vector[String] = isMac match {
     case true => Vector("-o", "direct_io,default_permissions,negative_vncache")
     case _    => Vector("-o", "direct_io,default_permissions")
-  }
-
-  type FuseCompatibleFs = api.Filesystem {
-    type Path = String
-    type Data = Array[Byte]
   }
 
   type DirectoryFiller   = net.fusejna.DirectoryFiller

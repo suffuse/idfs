@@ -19,6 +19,9 @@ trait Filesystem {
    */
   def resolve(path: Path): Metadata
 
+  // could be placed in another file, for ease of experimentation I put it here
+  def update(path: Path, metadata: Metadata): Unit
+
   // not the way to go, but adding a 'wrapping' data type for
   // laziness, you probably have something lying around for this
   sealed class Lazy[A](fetch: => A) {
@@ -30,7 +33,7 @@ trait Filesystem {
 
   sealed trait Node extends AnyRef
   object Node {
-    implicit val _data = new Key[Node]("node")
+    implicit val _node = new Key[Node]("node")
     implicit def _empty: Empty[Node] = Empty(NoNode)
   }
   final case object NoNode                            extends Node

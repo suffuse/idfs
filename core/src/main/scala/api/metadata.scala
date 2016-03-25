@@ -118,12 +118,12 @@ package object metadata {
     def set[A: LenientKey](value: A): Metadata  = drop[A] transformAttributes (_ :+ Attribute[A](value))
     def drop[A]()(implicit z: Key[A]): Metadata = if (has[A]) transformAttributes(_ filterNot (_ hasKey z)) else this
 
-    def only[A : Key : Empty] = new Only[A]
-    class Only[A : Key : Empty] {
-      def map[B : LenientKey](f: A => B): Metadata = drop[A] set f(apply[A])
+    def only[A : Key] = new Only[A]
+    class Only[A : Key] {
+      def map[B : LenientKey](f: A => B): Metadata = fold[A](ifValue = a => drop[A] set f(a), orElse = self)
       def mapOnly(f: A =?> A): Metadata            = map(x => if (f isDefinedAt x) f(x) else x)
-      def flatMap(f: A => Option[A]): Metadata     = f(apply[A]).fold(self)(self set _)
-      def filter(p: A => Boolean): Metadata        = if (has[A] && !p(apply[A])) drop[A] else self
+      def flatMap(f: A => Option[A]): Metadata     = fold[A](ifValue = a => f(a).fold(self)(self set _), orElse = self)
+      def filter(p: A => Boolean): Metadata        = fold[A](ifValue = a => if (!p(a)) drop[A] else self, orElse = self)
     }
 
     def fold[A]: Fold[A] = new Fold[A]
@@ -162,8 +162,9 @@ package object metadata {
   object Attribute {
     type Of[A] = Attribute { type Type = A }
 
-    implicit def apply[A](value: A)(implicit key: Key[A]): Of[A] = AttributeOf[A](key, value)
-    def unapply(x: Attribute): Some[x.Type]                      = Some(x.value)
+    implicit def apply[A](value: A)(implicit key: LenientKey[A]): Of[A] = AttributeOf[A](key, value)
+
+    def unapply(x: Attribute): Some[x.Type] = Some(x.value)
 
     /** The simple implementation of Attribute, which ties the knot between the
      *  user-facing type parameter and the type member which couples key and value.

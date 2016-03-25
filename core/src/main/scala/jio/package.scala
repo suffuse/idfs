@@ -39,11 +39,6 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
   implicit class FileOps(val f: File) extends Pathish[File] {
     def path: Path     = f.toPath
     def asRep(p: Path) = p.toFile
-
-    def appending[A](g: FileOutputStream => A): A = {
-      val stream = new FileOutputStream(f, true) // append = true
-      try g(stream) finally stream.close()
-    }
   }
   implicit class PathOps(val path: Path) extends Pathish[Path] {
     def asRep(p: Path) = p

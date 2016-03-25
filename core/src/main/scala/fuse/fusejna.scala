@@ -34,13 +34,13 @@ trait RootedFs extends FuseFsFull {
     }
 
   def write(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int = {
-    def impl(): Unit = {
+    // note that offset is ignored
+    def data = {
       val arr = new Array[Byte](size.toInt)
       buf get arr
-      val f = resolveFile(path)
-      f appending (_ write arr)
+      arr
     }
-    Try(impl) fold (_ => -1, _ => size.toInt)
+    effect(size.toInt)(fs update (path, Metadata(fs.File(data))))
   }
 
   def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =

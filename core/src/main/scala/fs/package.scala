@@ -4,10 +4,10 @@ import api._
 
 package object fs {
 
-  implicit def Wrapped(u: Filesystem) = new Wrapped { val fs: u.type = u }
+  implicit def Wrapped(u: Filesystem) = new WrappedFileSystem { val fs: u.type = u }
 
   // This file exists to experiment with transforming parts of the file system, in this case the Path
-  trait Wrapped {
+  trait WrappedFileSystem {
 
     val fs: Filesystem
 
@@ -25,6 +25,10 @@ package object fs {
             case fs.Link(target) => Link(target)
             case fs.NoNode       => NoNode
           }
+
+        def update(path: Path, metadata: Metadata): Unit =
+          // did not implement te reverse map here
+          fs update (path, metadata)
       }
 
     def contraMap[T](toNewPath: fs.Path => T, fromNewPath: T => fs.Path) =
@@ -39,6 +43,17 @@ package object fs {
             case fs.Link(target) => Link(toNewPath(target))
             case fs.NoNode       => NoNode
           }
+
+        def update(path: Path, metadata: Metadata): Unit = {
+          val p = fromNewPath(path)
+          val m = metadata.only[Node] map {
+            case File(data)   => fs.File(data.get)
+            case Dir (kids)   => fs.Dir(kids.get mapValues(fromNewPath))
+            case Link(target) => fs.Link(fromNewPath(target))
+            case NoNode       => fs.NoNode
+          }
+          fs update (p, m)
+        }
       }
 
     def withMappedPath[T](toNewPath: Path => T, fromNewPath: T => Path) =
