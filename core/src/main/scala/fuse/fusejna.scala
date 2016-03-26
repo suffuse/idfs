@@ -43,9 +43,6 @@ trait RootedFs extends FuseFsFull {
     effect(size.toInt)(fs update (path, Metadata(fs.File(data))))
   }
 
-  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =
-    tryFuse { resolvePath(path).tryLock() }
-
   def readdir(path: String, filler: DirectoryFiller): Int =
     (fs resolve path)[fs.Node] match {
       case fs.Dir(kids) =>
@@ -221,6 +218,21 @@ trait RootedFs extends FuseFsFull {
   //  List the names of all extended attributes. See listxattr(2). This should be implemented only if
   //  HAVE_SETXATTR is true.
   def listxattr(path: String, filler: net.fusejna.XattrListFiller): Int = notImplemented()
+
+  //  Perform a POSIX file-locking operation.
+  //
+  //  The lock function is somewhat complex. The cmd will be one of F_GETLK, F_SETLK, or F_SETLKW. The
+  //  fields in locks are defined in the fcntl(2) manual page; the l_whence field in that structure will
+  //  always be SEEK_SET.
+  //
+  //  For checking lock ownership, the fi->owner argument must be used.
+  //
+  //  Contrary to what some other documentation states, the FUSE library does not appear to do anything
+  //  special to help you out with locking. If you want locking to work, you will need to implement the
+  //  lock function. (Persons who have more knowledge of how FUSE locking works are encouraged to contact
+  //  me on this topic, since the existing documentation appears to be inaccurate.)
+  def lock(path: String, info: FileInfo, command: FlockCommand, flock: FlockWrapper): Int =
+    eok
 
   // Make a special (device) file, FIFO, or socket. See mknod(2) for details. This function is rarely needed,
   //  since it's uncommon to make these objects inside special-purpose filesystems.
