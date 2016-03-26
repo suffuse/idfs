@@ -51,5 +51,7 @@ trait Filesystem {
   }
   object Dir extends (Lazy[Map[Name, Path]] => Dir) {
     def apply(kids: => Map[Name, Path]): Dir = Dir(Lazy(kids))
+
+    implicit def empty: Empty[Dir] = Empty(Dir(Map.empty[Name, Path]))
   }
 }

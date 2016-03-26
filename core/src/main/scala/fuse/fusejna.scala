@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import jio._, api._
+import jio._, api._, attributes._
 
 abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
@@ -70,7 +70,7 @@ trait RootedFs extends FuseFsFull {
     import Node._
     val p = resolvePath(path)
     mode.`type`() match {
-      case Dir             => tryFuse(p mkdir mode.mode)
+      case Dir             => mkdir(path, mode)
       case File            => tryFuse(p mkfile mode.mode)
       case Fifo | Socket   => notSupported()
       case BlockDev | Link => notSupported()
@@ -78,9 +78,9 @@ trait RootedFs extends FuseFsFull {
   }
 
   def mkdir(path: String, mode: ModeInfo): Int =
-    resolvePath(path) match {
-      case f if f.nofollow.exists => alreadyExists()
-      case f                      => effect(eok)(f.mkdir(mode.mode))
+    (fs resolve path)[fs.Node] match {
+      case fs.NoNode => effect(eok)(fs update (path, Metadata set empty[fs.Dir] set UnixPerms(mode.mode)))
+      case         _ => alreadyExists()
     }
 
   def getattr(path: String, stat: StatInfo): Int =
