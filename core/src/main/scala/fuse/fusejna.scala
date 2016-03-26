@@ -65,19 +65,18 @@ trait RootedFs extends FuseFsFull {
 
   def create(path: String, mode: ModeInfo, info: FileInfo): Int = {
     import Node._
-    val p = resolvePath(path)
     mode.`type`() match {
       case Dir             => mkdir(path, mode)
       case File            => effect(eok)(fs update (path, Metadata set empty[fs.File] set UnixPerms(mode.mode)))
-      case Fifo | Socket   => notSupported()
-      case BlockDev | Link => notSupported()
+      case Fifo | Socket   => notSupported
+      case BlockDev | Link => notSupported
     }
   }
 
   def mkdir(path: String, mode: ModeInfo): Int =
     (fs resolve path)[fs.Node] match {
       case fs.NoNode => effect(eok)(fs update (path, Metadata set empty[fs.Dir] set UnixPerms(mode.mode)))
-      case         _ => alreadyExists()
+      case         _ => alreadyExists
     }
 
   def getattr(path: String, stat: StatInfo): Int =
@@ -92,21 +91,26 @@ trait RootedFs extends FuseFsFull {
       }
     }
 
-  def rename(from: String, to: String): Int =
-    tryFuse { resolvePath(from) moveTo resolvePath(to) }
+  def rename(from: String, to: String): Int = {
+    import fs.pathKey
+    (fs resolve to)[fs.Node] match {
+      case fs.NoNode => effect(eok)(fs update (from, Metadata set to))
+      case _         => alreadyExists
+    }
+  }
 
   def rmdir(path: String): Int =
     tryFuse {
       resolvePath(path) match {
         case d if d.nofollow.isDirectory => effect(eok)(d.delete())
-        case _                           => doesNotExist()
+        case _                           => doesNotExist
       }
     }
 
   def unlink(path: String): Int =
     resolvePath(path) match {
       case f if f.nofollow.exists => effect(eok)(f.delete())
-      case _                      => doesNotExist()
+      case _                      => doesNotExist
     }
 
   // p.follow, because symbolic links don't have meaningful permissions
@@ -121,7 +125,7 @@ trait RootedFs extends FuseFsFull {
     tryFuse { resolvePath("/" + linkName) mklink path(target) }
 
   def link(from: String, to: String): Int =
-    notSupported()
+    notSupported
 
   def truncate(path: String, size: Long): Int =
     tryFuse { effect(eok)(resolvePath(path) truncate size) }

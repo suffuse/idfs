@@ -19,12 +19,14 @@ package object fs {
         type Data = fs.Data
 
         def resolve(path: Path) =
-          f(fs resolve path).only[fs.Node] map {
-            case fs.File(data)   => File(data.get)
-            case fs.Dir (kids)   => Dir (kids.get)
-            case fs.Link(target) => Link(target)
-            case fs.NoNode       => NoNode
-          }
+          f(fs resolve path)
+            .only[fs.Node].map {
+              case fs.File(data)   => File(data.get)
+              case fs.Dir (kids)   => Dir (kids.get)
+              case fs.Link(target) => Link(target)
+              case fs.NoNode       => NoNode
+            }
+            .only[fs.Path].map(identity[Path])
 
         def update(path: Path, metadata: Metadata): Unit =
           // did not implement te reverse map here
@@ -36,22 +38,28 @@ package object fs {
         type Path = T
         type Data   = fs.Data
 
+        import fs.{ pathKey => oldPathKey }
+
         def resolve(path: Path) =
-          (fs resolve fromNewPath(path)).only[fs.Node] map {
-            case fs.File(data)   => File(data.get)
-            case fs.Dir (kids)   => Dir (kids.get mapValues toNewPath)
-            case fs.Link(target) => Link(toNewPath(target))
-            case fs.NoNode       => NoNode
-          }
+          (fs resolve fromNewPath(path))
+            .only[fs.Node].map {
+              case fs.File(data)   => File(data.get)
+              case fs.Dir (kids)   => Dir (kids.get mapValues toNewPath)
+              case fs.Link(target) => Link(toNewPath(target))
+              case fs.NoNode       => NoNode
+            }
+            .only[fs.Path].map(toNewPath)
 
         def update(path: Path, metadata: Metadata): Unit = {
           val p = fromNewPath(path)
-          val m = metadata.only[Node] map {
-            case File(data)   => fs.File(data.get)
-            case Dir (kids)   => fs.Dir(kids.get mapValues(fromNewPath))
-            case Link(target) => fs.Link(fromNewPath(target))
-            case NoNode       => fs.NoNode
-          }
+          val m = metadata
+            .only[Node].map {
+              case File(data)   => fs.File(data.get)
+              case Dir (kids)   => fs.Dir(kids.get mapValues(fromNewPath))
+              case Link(target) => fs.Link(fromNewPath(target))
+              case NoNode       => fs.NoNode
+            }
+            .only[Path].map(fromNewPath)
           fs update (p, m)
         }
       }

@@ -8,6 +8,8 @@ trait Filesystem {
    */
   type Path
 
+  implicit val pathKey = new Key[Path]("path")
+
   /** Some means of performing I/O on a virtualized file.
    */
   type Data
