@@ -48,6 +48,8 @@ trait Filesystem {
 
   object File extends (Lazy[Data] => File) {
     def apply(data: => Data): File = File(Lazy(data))
+
+    implicit def empty(implicit z:Empty[Data]): Empty[File] = Empty(File(z.emptyValue))
   }
   object Dir extends (Lazy[Map[Name, Path]] => Dir) {
     def apply(kids: => Map[Name, Path]): Dir = Dir(Lazy(kids))

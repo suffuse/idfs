@@ -71,7 +71,7 @@ trait RootedFs extends FuseFsFull {
     val p = resolvePath(path)
     mode.`type`() match {
       case Dir             => mkdir(path, mode)
-      case File            => tryFuse(p mkfile mode.mode)
+      case File            => effect(eok)(fs update (path, Metadata set empty[fs.File] set UnixPerms(mode.mode)))
       case Fifo | Socket   => notSupported()
       case BlockDev | Link => notSupported()
     }

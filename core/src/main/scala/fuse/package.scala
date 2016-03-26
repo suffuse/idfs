@@ -12,6 +12,8 @@ package object fuse {
     type Data = Array[Byte]
   }
 
+  implicit def emptyByteArray: Empty[Array[Byte]] = Empty(Array.empty[Byte])
+
   def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
 
   def alreadyExists()  = -EEXIST
