@@ -100,11 +100,10 @@ trait RootedFs extends FuseFsFull {
   }
 
   def rmdir(path: String): Int =
-    tryFuse {
-      resolvePath(path) match {
-        case d if d.nofollow.isDirectory => effect(eok)(d.delete())
-        case _                           => doesNotExist
-      }
+    (fs resolve path)[fs.Node] match {
+      case fs.NoNode                                      => doesNotExist
+      case fs.Dir(kids) if Try(kids.get.nonEmpty) | false => notEmpty
+      case _                                              => effect(eok)(fs update (path, Metadata set fs.NoNode))
     }
 
   def unlink(path: String): Int =

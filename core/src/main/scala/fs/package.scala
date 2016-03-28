@@ -55,7 +55,7 @@ package object fs {
           val m = metadata
             .only[Node].map {
               case File(data)   => fs.File(data.get)
-              case Dir (kids)   => fs.Dir(kids.get mapValues(fromNewPath))
+              case Dir (kids)   => fs.Dir(kids.get mapValues fromNewPath)
               case Link(target) => fs.Link(fromNewPath(target))
               case NoNode       => fs.NoNode
             }

@@ -69,6 +69,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
 
   private def updateNode(path: Path, metadata: api.Metadata) =
     metadata.foreach {
+      case NoNode           => path.delete()
       case Size(size)       => path truncate size
       case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
       case Mtime(timestamp) => path setLastModifiedTime timestamp
