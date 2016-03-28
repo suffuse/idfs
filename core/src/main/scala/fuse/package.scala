@@ -1,7 +1,5 @@
 package sfs
 
-import java.nio.file._
-import javax.naming.SizeLimitExceededException
 import net.fusejna.ErrorCodes._
 import api._
 
@@ -14,8 +12,6 @@ package object fuse {
 
   implicit def emptyByteArray: Empty[Array[Byte]] = Empty(Array.empty[Byte])
 
-  def tryFuse(body: => Unit): Int = Try(body) fold (_.toErrno, _ => eok)
-
   def alreadyExists()  = -EEXIST
   def doesNotExist()   = -ENOENT
   def eok()            = 0
@@ -26,21 +22,6 @@ package object fuse {
   def ioError()        = -EIO
   def notEmpty()       = -ENOTEMPTY
   def tooBig()         = -EFBIG
-
-  implicit class ThrowableOps(t: Throwable) {
-    // log(t)
-    def toErrno: Int = t match {
-      case _: FileAlreadyExistsException    => alreadyExists()
-      case _: NoSuchFileException           => doesNotExist()
-      case _: IllegalArgumentException      => isNotValid()
-      case _: UnsupportedOperationException => notImplemented()
-      case _: DirectoryNotEmptyException    => notEmpty()
-      case _: SizeLimitExceededException    => tooBig()
-      case _: AccessDeniedException         => -EACCES
-      case _: jio.IOException               => ioError()
-      case _                                => ioError()
-    }
-  }
 
   def addUnmountHook(fs: FuseFs): Unit =
     scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
