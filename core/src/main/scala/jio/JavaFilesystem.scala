@@ -1,7 +1,7 @@
 package sfs
 package jio
 
-import api.attributes._
+import api._, api.attributes._
 
 class JavaFilesystem(root: jio.Path) extends api.Filesystem {
 
@@ -25,7 +25,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
             )
 
                if (path.isFile) metadata set File(path.readAllBytes) set Size(path.size) set BlockCount(path.blockCount)
-          else if (path.isDir ) metadata set Dir (path.ls.map(p => p.filename -> p).toMap) set Size(path.size)
+          else if (path.isDir ) metadata set Dir (getKidsFrom(path)) set Size(path.size)
           else if (path.isLink) metadata set Link(path.readlink)
           else metadata
 
@@ -60,7 +60,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
       case File(data) =>
         (path mkfile metadata[UnixPerms].mask).nofollow write data.get
 
-      case Dir(kids) if kids.get.nonEmpty => throw new UnsupportedOperationException("we do not support creating a dir with kids")
+      case Dir(kids) if kids.nonEmpty => throw new UnsupportedOperationException("we do not support creating a dir with kids")
       case Dir(_) =>
         path mkdir metadata[UnixPerms].mask
 
@@ -80,6 +80,9 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
 
   // we probably need other defaults
   implicit val _defaultPerms: api.Empty[UnixPerms] = api.Empty(UnixPerms(0))
+
+  private def getKidsFrom(path: Path) =
+    Try(path.ls.map(p => p.filename -> p).toMap) | Map.empty
 
   private def bug(t: Throwable): Unit = {
     println("You have found a bug, please check the stacktrace to figure out what causes it")

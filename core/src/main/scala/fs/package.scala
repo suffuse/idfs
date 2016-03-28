@@ -22,7 +22,7 @@ package object fs {
           f(fs resolve path)
             .only[fs.Node].map {
               case fs.File(data)   => File(data.get)
-              case fs.Dir (kids)   => Dir (kids.get)
+              case fs.Dir (kids)   => Dir (kids)
               case fs.Link(target) => Link(target)
               case fs.NoNode       => NoNode
             }
@@ -44,7 +44,7 @@ package object fs {
           (fs resolve fromNewPath(path))
             .only[fs.Node].map {
               case fs.File(data)   => File(data.get)
-              case fs.Dir (kids)   => Dir (kids.get mapValues toNewPath)
+              case fs.Dir (kids)   => Dir (kids mapValues toNewPath)
               case fs.Link(target) => Link(toNewPath(target))
               case fs.NoNode       => NoNode
             }
@@ -55,7 +55,7 @@ package object fs {
           val m = metadata
             .only[Node].map {
               case File(data)   => fs.File(data.get)
-              case Dir (kids)   => fs.Dir(kids.get mapValues fromNewPath)
+              case Dir (kids)   => fs.Dir(kids mapValues fromNewPath)
               case Link(target) => fs.Link(fromNewPath(target))
               case NoNode       => fs.NoNode
             }

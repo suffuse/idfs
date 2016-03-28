@@ -45,12 +45,9 @@ trait RootedFs extends FuseFsFull {
 
   def readdir(path: String, filler: DirectoryFiller): Int =
     (fs resolve path)[fs.Node] match {
-      case fs.Dir(kids) =>
-        kids.get.keys foreach (filler add path + "/" + _)
-        eok
-
-      case fs.NoNode => doesNotExist
-      case _         => eok
+      case fs.Dir(kids) => effect(eok)(kids.keys foreach (filler add path + "/" + _))
+      case fs.NoNode    => doesNotExist
+      case _            => eok
     }
 
   def readlink(path: String, buf: ByteBuffer, size: Long): Int =
@@ -101,9 +98,9 @@ trait RootedFs extends FuseFsFull {
 
   def rmdir(path: String): Int =
     (fs resolve path)[fs.Node] match {
-      case fs.NoNode                                      => doesNotExist
-      case fs.Dir(kids) if Try(kids.get.nonEmpty) | false => notEmpty
-      case _                                              => effect(eok)(fs update (path, Metadata set fs.NoNode))
+      case fs.NoNode                     => doesNotExist
+      case fs.Dir(kids) if kids.nonEmpty => notEmpty
+      case _                             => effect(eok)(fs update (path, Metadata set fs.NoNode))
     }
 
   def unlink(path: String): Int =
