@@ -112,12 +112,10 @@ trait RootedFs extends FuseFsFull {
       case _         => effect(eok)(fs update (path, Metadata set fs.NoNode))
     }
 
-  // p.follow, because symbolic links don't have meaningful permissions
-  // chmod calls to a link are applied to the link target.
   def chmod(path: String, mode: ModeInfo): Int =
-    resolvePath(path) match {
-      case p if p.follow.exists => effect(eok)(p setPosixFilePermissions toJavaPermissions(mode.mode))
-      case _                    => doesNotExist()
+    (fs resolve path)[fs.Node] match {
+      case fs.NoNode => doesNotExist
+      case _         => effect(eok)(fs update (path, Metadata set UnixPerms(mode.mode)))
     }
 
   def symlink(target: String, linkName: String): Int =
