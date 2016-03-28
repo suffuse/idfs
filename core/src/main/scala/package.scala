@@ -40,4 +40,8 @@ package object sfs {
       case Failure(t) => l(t)
     }
   }
+
+  implicit class ClassOps[A](val c: Class[A]) {
+    def shortName: String = ((c.getName.stripSuffix("$") split "[.]").last split "[$]").last
+  }
 }

@@ -32,10 +32,6 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     }
   }
 
-  implicit class ClassOps[A](val c: Class[A]) {
-    def shortName: String = (c.getName.stripSuffix("$") split "[.]").last split "[$]" last
-  }
-
   implicit class FileOps(val f: File) extends Pathish[File] {
     def path: Path     = f.toPath
     def asRep(p: Path) = p.toFile
