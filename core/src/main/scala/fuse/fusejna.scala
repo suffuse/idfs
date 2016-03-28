@@ -3,24 +3,12 @@ package fuse
 
 import jio._, api._, attributes._
 
-abstract class FuseFsFull extends net.fusejna.FuseFilesystem with FuseFs {
-  def logging(): this.type = doto[this.type](this)(_ log true)
-}
-
-class RootedFsClass(val name: String, val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
-  def getName = name
-}
-
-trait RootedFs extends FuseFsFull {
-  def root: Path
-  def rootFile = root.toFile
+abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 
   // dependent types force us to have a single fs (a `val`)
   val fs: FuseCompatibleFs
 
-  protected def fuseContext: FuseContext
-  protected def resolvePath(p: String): Path = path(s"$root$p")
-  protected def resolveFile(p: String): File = if (p == "/") rootFile else rootFile / (p stripPrefix "/")
+  def logging(): this.type = doto[this.type](this)(_ log true)
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
     (fs resolve path)[fs.Node] match {

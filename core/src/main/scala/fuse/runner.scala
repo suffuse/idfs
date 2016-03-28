@@ -28,8 +28,6 @@ object reversefs extends FsRunner {
   }
 }
 
-/** Reverses all the data on the filesystem.
- */
 /** Generic SFS runner.
  */
 abstract class FsRunner {
@@ -40,16 +38,16 @@ abstract class FsRunner {
   def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground path(mountPoint)
 
   // clicking different parts together
-  def fuseJavaFs(root: Path) =
+  private def fuseJavaFs(root: Path) =
     new jio.JavaFilesystem(root) withMappedPath (_.to_s, path)
 
-  class Rooted(val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
-    def this(root: String) = this(path(root), fuseJavaFs(path(root)))
-    def this(root: Path) = this(root, fuseJavaFs(root))
+  class Rooted(val fs: FuseCompatibleFs) extends RootedFs {
+    def this(root: String) = this(fuseJavaFs(path(root)))
+    def this(root: Path) = this(fuseJavaFs(root))
     def getName = name
 
-    def filterNot(p: String => Boolean) = new Rooted(root, fs filterNot p)
-    def mapNode(f: fs.Node =?> fs.Node) = new Rooted(root, fs mapNode f)
+    def filterNot(p: String => Boolean) = new Rooted(fs filterNot p)
+    def mapNode(f: fs.Node =?> fs.Node) = new Rooted(fs mapNode f)
   }
 
   def main(args: Array[String]): Unit = {
