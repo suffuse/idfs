@@ -107,9 +107,9 @@ trait RootedFs extends FuseFsFull {
     }
 
   def unlink(path: String): Int =
-    resolvePath(path) match {
-      case f if f.nofollow.exists => effect(eok)(f.delete())
-      case _                      => doesNotExist
+    (fs resolve path)[fs.Node] match {
+      case fs.NoNode => doesNotExist
+      case _         => effect(eok)(fs update (path, Metadata set fs.NoNode))
     }
 
   // p.follow, because symbolic links don't have meaningful permissions
