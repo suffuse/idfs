@@ -134,7 +134,10 @@ trait RootedFs extends FuseFsFull {
     }
 
   def utimens(path: String, wrapper: TimeBufferWrapper) =
-    effect(eok)(fs update (path, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
+    (fs resolve path)[fs.Node] match {
+      case fs.NoNode => doesNotExist
+      case _         => effect(eok)(fs update (path, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
+    }
 
   private def populateStat(stat: StatInfo, node: fs.Node, metadata: api.Metadata) = {
     import api.attributes._
