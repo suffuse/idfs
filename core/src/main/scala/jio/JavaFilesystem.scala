@@ -3,26 +3,25 @@ package jio
 
 import api._, api.attributes._
 
-class JavaFilesystem(root: jio.Path) extends api.Filesystem {
+class JavaFilesystem(root: jio.Path) extends Filesystem {
 
   type Path = jio.Path
   type Data = Array[Byte]
 
   private def resolvePath(path: Path) = root append path
 
-  def resolve(path: Path): api.Metadata =
+  def resolve(path: Path): Metadata =
     try {
       resolvePath(path) match {
         case path if path.nofollow.exists =>
-          import api.attributes._
-          val metadata =
-            api.Metadata(
-              Atime(path.atime),
-              Mtime(path.mtime),
-              UnixPerms(toUnixMask(path.perms)),
-              Uid(path.uid),
-              Nlink(path.nlink)
-            )
+
+          val metadata = Metadata(
+            Atime(path.atime),
+            Mtime(path.mtime),
+            UnixPerms(toUnixMask(path.perms)),
+            Uid(path.uid),
+            Nlink(path.nlink)
+          )
 
                if (path.isFile) metadata set File(path.readAllBytes) set Size(path.size) set BlockCount(path.blockCount)
           else if (path.isDir ) metadata set Dir (getKidsFrom(path)) set Size(path.size)
@@ -30,16 +29,16 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
           else metadata
 
         case _ =>
-          api.Metadata
+          Metadata
       }
     } catch { case t: Throwable =>
       bug(t)
-      api.Metadata
+      Metadata
     }
 
   // question: how do we communicate access denied, do we even communicate that?
 
-  def update(path: Path, metadata: api.Metadata): Unit =
+  def update(path: Path, metadata: Metadata): Unit =
     try {
       resolve(path)[Node] match {
         case NoNode =>
@@ -52,7 +51,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
       bug(t)
     }
 
-  private def newNode(path: Path, metadata: api.Metadata) =
+  private def newNode(path: Path, metadata: Metadata) =
     metadata[Node] match {
       case NoNode =>
         // easy, don't do anything
@@ -68,7 +67,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
         path mklink target
     }
 
-  private def updateNode(path: Path, metadata: api.Metadata) =
+  private def updateNode(path: Path, metadata: Metadata) =
     metadata.foreach {
       case NoNode           => path.delete()
       case Size(size)       => path truncate size
@@ -79,7 +78,7 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
     }
 
   // we probably need other defaults
-  implicit val _defaultPerms: api.Empty[UnixPerms] = api.Empty(UnixPerms(0))
+  implicit val _defaultPerms: Empty[UnixPerms] = Empty(UnixPerms(0))
 
   private def getKidsFrom(path: Path) =
     Try(path.ls.map(p => p.filename -> p).toMap) | Map.empty
