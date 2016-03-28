@@ -43,9 +43,9 @@ trait Filesystem {
   final case class  File(data: Lazy[Data])            extends Node
   // kids are wrapped in lazy because the one retrieving the metadata of the dir
   // might not have access to the kids
-  final case class  Dir (kids: Map[Name, Path]) extends Node {
-    def filter(p: Path => Boolean): Dir =
-      Dir(kids filter { case (_, path) => p(path) })
+  final case class  Dir (kids: Set[Name]) extends Node {
+    def filter(p: Name => Boolean): Dir =
+      Dir(kids filter p)
   }
 
   object File extends (Lazy[Data] => File) {
@@ -53,7 +53,7 @@ trait Filesystem {
 
     implicit def empty(implicit z:Empty[Data]): Empty[File] = Empty(File(z.emptyValue))
   }
-  object Dir extends (Map[Name, Path] => Dir) {
-    implicit def empty: Empty[Dir] = Empty(Dir(Map.empty[Name, Path]))
+  object Dir extends (Set[Name] => Dir) {
+    implicit def empty: Empty[Dir] = Empty(Dir(Set.empty[Name]))
   }
 }

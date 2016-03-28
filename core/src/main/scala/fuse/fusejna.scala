@@ -33,7 +33,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 
   def readdir(path: String, filler: DirectoryFiller): Int =
     (fs resolve path)[fs.Node] match {
-      case fs.Dir(kids) => effect(eok)(kids.keys foreach (filler add path + "/" + _))
+      case fs.Dir(kids) => effect(eok)(kids foreach (filler add path + "/" + _))
       case fs.NoNode    => doesNotExist
       case _            => eok
     }

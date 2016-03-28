@@ -44,7 +44,7 @@ package object fs {
           (fs resolve fromNewPath(path))
             .only[fs.Node].map {
               case fs.File(data)   => File(data.get)
-              case fs.Dir (kids)   => Dir (kids mapValues toNewPath)
+              case fs.Dir (kids)   => Dir (kids)
               case fs.Link(target) => Link(toNewPath(target))
               case fs.NoNode       => NoNode
             }
@@ -55,7 +55,7 @@ package object fs {
           val m = metadata
             .only[Node].map {
               case File(data)   => fs.File(data.get)
-              case Dir (kids)   => fs.Dir(kids mapValues fromNewPath)
+              case Dir (kids)   => fs.Dir(kids)
               case Link(target) => fs.Link(fromNewPath(target))
               case NoNode       => fs.NoNode
             }
@@ -69,10 +69,10 @@ package object fs {
 
     def mapNode(f: fs.Node =?> fs.Node) = map(_.only[fs.Node] mapOnly f)
 
-    def filter(p: fs.Path => Boolean) = mapNode {
+    def filter(p: Name => Boolean) = mapNode {
       case dir: fs.Dir => dir filter p
     }
-    def filterNot(p: fs.Path => Boolean) = filter(x => !p(x))
+    def filterNot(p: Name => Boolean) = filter(x => !p(x))
 
   }
 }

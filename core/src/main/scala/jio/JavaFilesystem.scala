@@ -81,7 +81,7 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
   implicit val _defaultPerms: Empty[UnixPerms] = Empty(UnixPerms(0))
 
   private def getKidsFrom(path: Path) =
-    Try(path.ls.map(p => p.filename -> p).toMap) | Map.empty
+    Try(path.ls.map(p => p.filename).toSet) | Set.empty
 
   private def bug(t: Throwable): Unit = {
     println("You have found a bug, please check the stacktrace to figure out what causes it")
