@@ -119,7 +119,7 @@ trait RootedFs extends FuseFsFull {
     }
 
   def symlink(target: String, linkName: String): Int =
-    tryFuse { resolvePath("/" + linkName) mklink path(target) }
+    effect(eok)(fs update(linkName, Metadata set fs.Link(target)))
 
   def link(from: String, to: String): Int =
     notSupported
