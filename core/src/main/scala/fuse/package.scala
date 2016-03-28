@@ -25,6 +25,7 @@ package object fuse {
   def notSupported()   = notImplemented()
   def ioError()        = -EIO
   def notEmpty()       = -ENOTEMPTY
+  def tooBig()         = -EFBIG
 
   implicit class ThrowableOps(t: Throwable) {
     // log(t)
@@ -34,7 +35,7 @@ package object fuse {
       case _: IllegalArgumentException      => isNotValid()
       case _: UnsupportedOperationException => notImplemented()
       case _: DirectoryNotEmptyException    => notEmpty()
-      case _: SizeLimitExceededException    => -EFBIG
+      case _: SizeLimitExceededException    => tooBig()
       case _: AccessDeniedException         => -EACCES
       case _: jio.IOException               => ioError()
       case _                                => ioError()

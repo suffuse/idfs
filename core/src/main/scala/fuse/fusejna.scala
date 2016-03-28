@@ -124,8 +124,11 @@ trait RootedFs extends FuseFsFull {
   def link(from: String, to: String): Int =
     notSupported
 
-  def truncate(path: String, size: Long): Int =
-    tryFuse { effect(eok)(resolvePath(path) truncate size) }
+  def truncate(path: String, size: Long): Int = {
+    fs update (path, Metadata set Size(size))
+    val success = (fs resolve path).fold[Size](ifValue = _.bytes == size, orElse = false)
+    if (success) eok else tooBig
+  }
 
   def utimens(path: String, wrapper: TimeBufferWrapper) =
     tryFuse(resolvePath(path) setLastModifiedTime FileTime.nanos(wrapper.mod_nsec))
