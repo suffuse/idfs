@@ -116,7 +116,10 @@ trait RootedFs extends FuseFsFull {
     }
 
   def symlink(target: String, linkName: String): Int =
-    effect(eok)(fs update(linkName, Metadata set fs.Link(target)))
+    (fs resolve linkName)[fs.Node] match {
+      case fs.NoNode => effect(eok)(fs update(linkName, Metadata set fs.Link(target)))
+      case _         => alreadyExists
+    }
 
   def link(from: String, to: String): Int =
     notSupported
