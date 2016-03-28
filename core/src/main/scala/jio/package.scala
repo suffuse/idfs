@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 import java.nio.{ file => jnf }
 import java.nio.{ channels => jnc }
 import jnf.{ attribute => jnfa }
+import jnfa.PosixFilePermissions.asFileAttribute
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
 import java.util.concurrent.TimeUnit
@@ -32,8 +33,47 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     }
   }
 
-  implicit class PathOps(val path: Path) extends Pathish[Path] {
-    def asRep(p: Path) = p
+  implicit class PathOps(val path: Path) {
+    def /(name: String): Path      = path resolve name
+
+    def ls: Vector[Path]           = if (path.nofollow.isDirectory) withDirStream(path)(_.toVector) else Vector()
+    def mkdir(bits: Long): Path    = path createDirectory asFileAttribute(toJavaPermissions(bits))
+    def mkfile(bits: Long): Path   = path createFile asFileAttribute(toJavaPermissions(bits))
+    def mklink(target: Path): Path = path createSymbolicLink target
+    def readlink: Path             = path.readSymbolicLink
+
+    def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
+    def gid: Int                         = 0 // OMG what a hassle.
+    def group: GroupPrincipal            = posixAttributes.group
+    def inum: Object                     = basicAttributes.fileKey
+    def owner: UserPrincipal             = posixAttributes.owner
+    def perms: jSet[PosixFilePermission] = posixAttributes.permissions
+    def nlink: Int                       = path.nofollow.getAttribute("unix:nlink").asInstanceOf[Int]
+
+    def atime: FileTime = basicAttributes.lastAccessTime
+    def ctime: FileTime = basicAttributes.creationTime
+    def mtime: FileTime = basicAttributes.lastModifiedTime
+
+    def isDir: Boolean   = path.nofollow.isDirectory
+    def isFile: Boolean  = path.nofollow.isRegularFile
+    def isLink: Boolean  = path.isSymbolicLink
+    def isOther: Boolean = basicAttributes.isOther
+
+    private def withDirStream[A](dir: Path)(code: jStream[Path] => A): A =
+      (Files list dir) |> (str => try code(str) finally str.close())
+
+    def attributes[A <: BasicFileAttributes : CTag](): Try[A] = Try(path.nofollow readAttributes classOf[A])
+    def posixAttributes: PosixFileAttributes                  = attributes[PosixFileAttributes] | ??? // FIXME
+    def basicAttributes: BasicFileAttributes                  = attributes[BasicFileAttributes] | ??? // FIXME
+
+    def blockCount: Long     = (path.size + blockSize - 1) / blockSize
+    def blockSize: Long      = 512 // FIXME
+    def depth: Int           = path.getNameCount
+    def filename: String     = path.getFileName.to_s
+    def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
+    def moveTo(target: Path) = path.nofollow move target
+    def to_s: String         = path.toString
+
 
     def append(other: Path) = jio.path(path.to_s + other.to_s)
 
