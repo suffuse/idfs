@@ -75,7 +75,7 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def to_s: String         = path.toString
 
 
-    def append(other: Path) = jio.path(path.to_s + other.to_s)
+    def append(other: Path)      = jio.path(path.to_s + other.to_s)
 
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
     def truncate(size: Long): Unit = withWriteChannel {

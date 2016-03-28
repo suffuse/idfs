@@ -11,7 +11,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
   def logging(): this.type = doto[this.type](this)(_ log true)
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
-    (fs resolve path)[fs.Node] match {
+    (fs lookup (fs resolve path))[fs.Node] match {
       case fs.File(data) =>
         val totalBytes = if (offset + size > data.get.length) data.get.length - offset else size
         buf.put(data.get, offset.toInt, totalBytes.toInt)
@@ -28,18 +28,18 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
       buf get arr
       arr
     }
-    effect(size.toInt)(fs update (path, Metadata(fs.File(data))))
+    effect(size.toInt)(fs update (fs resolve path, Metadata(fs.File(data))))
   }
 
   def readdir(path: String, filler: DirectoryFiller): Int =
-    (fs resolve path)[fs.Node] match {
+    (fs lookup (fs resolve path))[fs.Node] match {
       case fs.Dir(kids) => effect(eok)(kids foreach (filler add path + "/" + _))
       case fs.NoNode    => doesNotExist
       case _            => eok
     }
 
   def readlink(path: String, buf: ByteBuffer, size: Long): Int =
-    (fs resolve path)[fs.Node] match {
+    (fs lookup (fs resolve path))[fs.Node] match {
       case fs.Link(target) =>
         buf put (target getBytes UTF8)
         eok
@@ -52,20 +52,22 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     import Node._
     mode.`type`() match {
       case Dir             => mkdir(path, mode)
-      case File            => effect(eok)(fs update (path, Metadata set empty[fs.File] set UnixPerms(mode.mode)))
+      case File            => effect(eok)(fs update (fs resolve path, Metadata set empty[fs.File] set UnixPerms(mode.mode)))
       case Fifo | Socket   => notSupported
       case BlockDev | Link => notSupported
     }
   }
 
-  def mkdir(path: String, mode: ModeInfo): Int =
-    (fs resolve path)[fs.Node] match {
-      case fs.NoNode => effect(eok)(fs update (path, Metadata set empty[fs.Dir] set UnixPerms(mode.mode)))
+  def mkdir(path: String, mode: ModeInfo): Int = {
+    val id = fs resolve path
+    (fs lookup id)[fs.Node] match {
+      case fs.NoNode => effect(eok)(fs update (id, Metadata set empty[fs.Dir] set UnixPerms(mode.mode)))
       case         _ => alreadyExists
     }
+  }
 
   def getattr(path: String, stat: StatInfo): Int =
-    (fs resolve path) |> { metadata =>
+    (fs lookup (fs resolve path)) |> { metadata =>
       metadata[fs.Node] match {
         case n @ fs.NoNode =>
           doesNotExist
@@ -77,55 +79,69 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     }
 
   def rename(from: String, to: String): Int = {
-    import fs.pathKey
-    (fs resolve to)[fs.Node] match {
-      case fs.NoNode => effect(eok)(fs update (from, Metadata set to))
+    val idFrom = fs resolve from
+    val idTo   = fs resolve to
+    ((fs lookup idFrom)[fs.Node], (fs lookup idTo)[fs.Node]) match {
+      case (fs.NoNode, _) => doesNotExist
+      case (_, fs.NoNode) => effect(eok)(fs relocate (idFrom, idTo))
+      case _              => alreadyExists
+    }
+  }
+
+  def rmdir(path: String): Int = {
+    val id = fs resolve path
+    (fs lookup id)[fs.Node] match {
+      case fs.NoNode                     => doesNotExist
+      case fs.Dir(kids) if kids.nonEmpty => notEmpty
+      case _                             => effect(eok)(fs update (id, Metadata set fs.NoNode))
+    }
+  }
+
+  def unlink(path: String): Int = {
+    val id = fs resolve path
+    (fs lookup id)[fs.Node] match {
+      case fs.NoNode => doesNotExist
+      case _         => effect(eok)(fs update (id, Metadata set fs.NoNode))
+    }
+  }
+
+  def chmod(path: String, mode: ModeInfo): Int = {
+    val id = fs resolve path
+    (fs lookup id)[fs.Node] match {
+      case fs.NoNode => doesNotExist
+      case _         => effect(eok)(fs update (id, Metadata set UnixPerms(mode.mode)))
+    }
+  }
+
+  def symlink(target: String, linkName: String): Int = {
+    val linkId   = fs resolve linkName
+    (fs lookup linkId)[fs.Node] match {
+      case fs.NoNode => effect(eok)(fs update(linkId, Metadata set fs.Link(target)))
       case _         => alreadyExists
     }
   }
 
-  def rmdir(path: String): Int =
-    (fs resolve path)[fs.Node] match {
-      case fs.NoNode                     => doesNotExist
-      case fs.Dir(kids) if kids.nonEmpty => notEmpty
-      case _                             => effect(eok)(fs update (path, Metadata set fs.NoNode))
-    }
-
-  def unlink(path: String): Int =
-    (fs resolve path)[fs.Node] match {
-      case fs.NoNode => doesNotExist
-      case _         => effect(eok)(fs update (path, Metadata set fs.NoNode))
-    }
-
-  def chmod(path: String, mode: ModeInfo): Int =
-    (fs resolve path)[fs.Node] match {
-      case fs.NoNode => doesNotExist
-      case _         => effect(eok)(fs update (path, Metadata set UnixPerms(mode.mode)))
-    }
-
-  def symlink(target: String, linkName: String): Int =
-    (fs resolve linkName)[fs.Node] match {
-      case fs.NoNode => effect(eok)(fs update(linkName, Metadata set fs.Link(target)))
-      case _         => alreadyExists
-    }
-
   def link(from: String, to: String): Int =
     notSupported
 
-  def truncate(path: String, size: Long): Int =
-    (fs resolve path) |> { metadata =>
+  def truncate(path: String, size: Long): Int = {
+    val id = fs resolve path
+    (fs lookup id) |> { metadata =>
       metadata[fs.Node] match {
         case fs.NoNode  => doesNotExist
-        case fs.File(_) => effect(eok)(fs update (path, metadata set Size(size)))
+        case fs.File(_) => effect(eok)(fs update (id, metadata set Size(size)))
         case _          => isNotValid
       }
     }
+  }
 
-  def utimens(path: String, wrapper: TimeBufferWrapper) =
-    (fs resolve path)[fs.Node] match {
+  def utimens(path: String, wrapper: TimeBufferWrapper) = {
+    val id = fs resolve path
+    (fs lookup id)[fs.Node] match {
       case fs.NoNode => doesNotExist
-      case _         => effect(eok)(fs update (path, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
+      case _         => effect(eok)(fs update (id, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
     }
+  }
 
   private def populateStat(stat: StatInfo, node: fs.Node, metadata: api.Metadata) = {
     import api.attributes._

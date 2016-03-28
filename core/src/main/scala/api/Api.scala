@@ -13,6 +13,7 @@ trait Api {
   type FileTime    = java.nio.file.attribute.FileTime
   type Iso[A]      = A => A
   type Key[A]      = metadata.KeyDefinition[A]
+  type LinkTarget  = String // Could be anything as long as implementations on both sides are able to serialize to it
   type Metadata    = metadata.Metadata
   val  Metadata    = metadata.Metadata
   type Name        = String
