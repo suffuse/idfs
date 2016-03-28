@@ -141,9 +141,9 @@ trait RootedFs extends FuseFsFull {
       case BlockCount(amount) => stat blocks amount
       case Uid(value)         => stat uid    value
       case UnixPerms(mask)    => stat mode   (node.asFuseBits | mask)
+      case Nlink(count)       => stat nlink  count
     }
 
-    stat nlink  1
     stat gid    getGID // XXX huge hassle.
   }
 

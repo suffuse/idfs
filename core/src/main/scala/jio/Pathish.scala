@@ -25,6 +25,7 @@ trait Pathish[Rep] {
   def inum: Object                     = basicAttributes.fileKey
   def owner: UserPrincipal             = posixAttributes.owner
   def perms: jSet[PosixFilePermission] = posixAttributes.permissions
+  def nlink: Int                       = path.nofollow.getAttribute("unix:nlink").asInstanceOf[Int]
 
   def atime: FileTime = basicAttributes.lastAccessTime
   def ctime: FileTime = basicAttributes.creationTime

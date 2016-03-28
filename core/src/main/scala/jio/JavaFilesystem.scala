@@ -20,7 +20,8 @@ class JavaFilesystem(root: jio.Path) extends api.Filesystem {
               Atime(path.atime),
               Mtime(path.mtime),
               UnixPerms(toUnixMask(path.perms)),
-              Uid(path.uid)
+              Uid(path.uid),
+              Nlink(path.nlink)
             )
 
                if (path.isFile) metadata set File(path.readAllBytes) set Size(path.size) set BlockCount(path.blockCount)

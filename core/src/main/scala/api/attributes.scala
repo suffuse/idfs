@@ -54,4 +54,8 @@ object attributes {
 
   final case class BlockCount(amount: Long)
   implicit val _blockCount = new api.Key[BlockCount]("number of blocks")
+
+  final case class Nlink(count: Int)
+  implicit val _nlink = new api.Key[Nlink]("number of links")
+
 }
