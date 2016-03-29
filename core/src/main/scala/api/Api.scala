@@ -9,6 +9,7 @@ trait Api {
   val  Attribute   = metadata.Attribute
   type Buf         = java.nio.ByteBuffer
   type CTag[A]     = scala.reflect.ClassTag[A]
+  type Data        = Array[Byte]
   type Duration    = scala.concurrent.duration.Duration
   type FileTime    = java.nio.file.attribute.FileTime
   type Iso[A]      = A => A
@@ -17,6 +18,7 @@ trait Api {
   type Metadata    = metadata.Metadata
   val  Metadata    = metadata.Metadata
   type Name        = String
+  type Path        = jio.Path
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
 

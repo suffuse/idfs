@@ -5,11 +5,6 @@ import api._
 
 package object fuse {
 
-  type FuseCompatibleFs = api.Filesystem {
-    type Path = String
-    type Data = Array[Byte]
-  }
-
   implicit def emptyByteArray: Empty[Array[Byte]] = Empty(Array.empty[Byte])
 
   def alreadyExists()  = -EEXIST

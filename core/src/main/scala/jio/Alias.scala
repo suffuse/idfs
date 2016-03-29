@@ -50,7 +50,6 @@ trait Alias {
   type ByteArrayInputStream = java.io.ByteArrayInputStream
   type ByteBuffer           = java.nio.ByteBuffer
   type Charset              = java.nio.charset.Charset
-  type File                 = java.io.File
   type FileChannel          = jnc.FileChannel
   type FileInputStream      = java.io.FileInputStream
   type FileOutputStream     = java.io.FileOutputStream

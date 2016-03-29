@@ -6,18 +6,18 @@ import jio._, api._, attributes._
 abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 
   // dependent types force us to have a single fs (a `val`)
-  val fs: FuseCompatibleFs
+  val fs: Filesystem
 
   def logging(): this.type = doto[this.type](this)(_ log true)
 
   def read(path: String, buf: ByteBuffer, size: Long, offset: Long, info: FileInfo): Int =
-    (fs lookup (fs resolve path))[fs.Node] match {
-      case fs.File(data) =>
+    (fs lookup (fs resolve jio.path(path)))[Node] match {
+      case File(data) =>
         val totalBytes = if (offset + size > data.get.length) data.get.length - offset else size
         buf.put(data.get, offset.toInt, totalBytes.toInt)
         totalBytes.toInt
 
-      case fs.NoNode => doesNotExist
+      case NoNode => doesNotExist
       case _         => isNotValid
     }
 
@@ -28,23 +28,23 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
       buf get arr
       arr
     }
-    effect(size.toInt)(fs update (fs resolve path, Metadata(fs.File(data))))
+    effect(size.toInt)(fs update (fs resolve jio.path(path), Metadata(File(data))))
   }
 
   def readdir(path: String, filler: DirectoryFiller): Int =
-    (fs lookup (fs resolve path))[fs.Node] match {
-      case fs.Dir(kids) => effect(eok)(kids foreach (filler add path + "/" + _))
-      case fs.NoNode    => doesNotExist
+    (fs lookup (fs resolve jio.path(path)))[Node] match {
+      case Dir(kids) => effect(eok)(kids foreach (filler add path + "/" + _))
+      case NoNode    => doesNotExist
       case _            => eok
     }
 
   def readlink(path: String, buf: ByteBuffer, size: Long): Int =
-    (fs lookup (fs resolve path))[fs.Node] match {
-      case fs.Link(target) =>
+    (fs lookup (fs resolve jio.path(path)))[Node] match {
+      case Link(target) =>
         buf put (target getBytes UTF8)
         eok
 
-      case fs.NoNode => doesNotExist
+      case NoNode => doesNotExist
       case _         => isNotValid
     }
 
@@ -52,24 +52,24 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     import Node._
     mode.`type`() match {
       case Dir             => mkdir(path, mode)
-      case File            => effect(eok)(fs update (fs resolve path, Metadata set empty[fs.File] set UnixPerms(mode.mode)))
+      case File            => effect(eok)(fs update (fs resolve jio.path(path), Metadata set empty[File] set UnixPerms(mode.mode)))
       case Fifo | Socket   => notSupported
       case BlockDev | Link => notSupported
     }
   }
 
   def mkdir(path: String, mode: ModeInfo): Int = {
-    val id = fs resolve path
-    (fs lookup id)[fs.Node] match {
-      case fs.NoNode => effect(eok)(fs update (id, Metadata set empty[fs.Dir] set UnixPerms(mode.mode)))
+    val id = fs resolve jio.path(path)
+    (fs lookup id)[Node] match {
+      case NoNode => effect(eok)(fs update (id, Metadata set empty[Dir] set UnixPerms(mode.mode)))
       case         _ => alreadyExists
     }
   }
 
   def getattr(path: String, stat: StatInfo): Int =
-    (fs lookup (fs resolve path)) |> { metadata =>
-      metadata[fs.Node] match {
-        case n @ fs.NoNode =>
+    (fs lookup (fs resolve jio.path(path))) |> { metadata =>
+      metadata[Node] match {
+        case n @ NoNode =>
           doesNotExist
 
         case node =>
@@ -79,44 +79,44 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     }
 
   def rename(from: String, to: String): Int = {
-    val idFrom = fs resolve from
-    val idTo   = fs resolve to
-    ((fs lookup idFrom)[fs.Node], (fs lookup idTo)[fs.Node]) match {
-      case (fs.NoNode, _) => doesNotExist
-      case (_, fs.NoNode) => effect(eok)(fs relocate (idFrom, idTo))
+    val idFrom = fs resolve jio.path(from)
+    val idTo   = fs resolve jio.path(to)
+    ((fs lookup idFrom)[Node], (fs lookup idTo)[Node]) match {
+      case (NoNode, _) => doesNotExist
+      case (_, NoNode) => effect(eok)(fs relocate (idFrom, idTo))
       case _              => alreadyExists
     }
   }
 
   def rmdir(path: String): Int = {
-    val id = fs resolve path
-    (fs lookup id)[fs.Node] match {
-      case fs.NoNode                     => doesNotExist
-      case fs.Dir(kids) if kids.nonEmpty => notEmpty
-      case _                             => effect(eok)(fs update (id, Metadata set fs.NoNode))
+    val id = fs resolve jio.path(path)
+    (fs lookup id)[Node] match {
+      case NoNode                     => doesNotExist
+      case Dir(kids) if kids.nonEmpty => notEmpty
+      case _                             => effect(eok)(fs update (id, Metadata set NoNode))
     }
   }
 
   def unlink(path: String): Int = {
-    val id = fs resolve path
-    (fs lookup id)[fs.Node] match {
-      case fs.NoNode => doesNotExist
-      case _         => effect(eok)(fs update (id, Metadata set fs.NoNode))
+    val id = fs resolve jio.path(path)
+    (fs lookup id)[Node] match {
+      case NoNode => doesNotExist
+      case _         => effect(eok)(fs update (id, Metadata set NoNode))
     }
   }
 
   def chmod(path: String, mode: ModeInfo): Int = {
-    val id = fs resolve path
-    (fs lookup id)[fs.Node] match {
-      case fs.NoNode => doesNotExist
+    val id = fs resolve jio.path(path)
+    (fs lookup id)[Node] match {
+      case NoNode => doesNotExist
       case _         => effect(eok)(fs update (id, Metadata set UnixPerms(mode.mode)))
     }
   }
 
   def symlink(target: String, linkName: String): Int = {
-    val linkId   = fs resolve linkName
-    (fs lookup linkId)[fs.Node] match {
-      case fs.NoNode => effect(eok)(fs update(linkId, Metadata set fs.Link(target)))
+    val linkId   = fs resolve jio.path(linkName)
+    (fs lookup linkId)[Node] match {
+      case NoNode => effect(eok)(fs update(linkId, Metadata set Link(target)))
       case _         => alreadyExists
     }
   }
@@ -125,25 +125,25 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     notSupported
 
   def truncate(path: String, size: Long): Int = {
-    val id = fs resolve path
+    val id = fs resolve jio.path(path)
     (fs lookup id) |> { metadata =>
-      metadata[fs.Node] match {
-        case fs.NoNode  => doesNotExist
-        case fs.File(_) => effect(eok)(fs update (id, metadata set Size(size)))
+      metadata[Node] match {
+        case NoNode  => doesNotExist
+        case File(_) => effect(eok)(fs update (id, metadata set Size(size)))
         case _          => isNotValid
       }
     }
   }
 
   def utimens(path: String, wrapper: TimeBufferWrapper) = {
-    val id = fs resolve path
-    (fs lookup id)[fs.Node] match {
-      case fs.NoNode => doesNotExist
+    val id = fs resolve jio.path(path)
+    (fs lookup id)[Node] match {
+      case NoNode => doesNotExist
       case _         => effect(eok)(fs update (id, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
     }
   }
 
-  private def populateStat(stat: StatInfo, node: fs.Node, metadata: api.Metadata) = {
+  private def populateStat(stat: StatInfo, node: Node, metadata: api.Metadata) = {
     import api.attributes._
     metadata foreach {
       case Size(bytes)        => stat size   bytes
@@ -158,14 +158,14 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     stat gid    getGID // XXX huge hassle.
   }
 
-  implicit class NodeOps(val node: fs.Node) {
+  implicit class NodeOps(val node: Node) {
 
     import api.attributes._
     def asFuseBits = node match {
-      case fs.File(_) => Node.File.getBits
-      case fs.Dir(_)  => Node.Dir.getBits
-      case fs.Link(_) => Node.Link.getBits
-      case fs.NoNode  => 0L
+      case File(_) => Node.File.getBits
+      case Dir(_)  => Node.Dir.getBits
+      case Link(_) => Node.Link.getBits
+      case NoNode  => 0L
     }
   }
 
@@ -295,16 +295,16 @@ trait FuseFs extends FuseFilesystem {
     else
       exec("fusermount", "-u", getMountPoint.getPath)
   )
-  private def doMount(mountPoint: File, blocking: Boolean): this.type = {
+  private def doMount(mountPoint: Path, blocking: Boolean): this.type = {
     addUnmountHook(this)
-    super.mount(mountPoint, blocking)
+    super.mount(mountPoint.toFile, blocking)
     this
   }
 
   def fillDir(df: DirectoryFiller)(xs: Traversable[Any]): Unit = xs foreach (df add "" + _)
 
-  def mount(mountPoint: Path): this.type           = doMount(mountPoint.toFile, blocking = false)
-  def mountForeground(mountPoint: Path): this.type = doMount(mountPoint.toFile, blocking = true)
+  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = false)
+  def mountForeground(mountPoint: Path): this.type = doMount(mountPoint, blocking = true)
 
   def fuseContext(): FuseContext  = super.getFuseContext
   def getOptions(): Array[String] = options.toArray

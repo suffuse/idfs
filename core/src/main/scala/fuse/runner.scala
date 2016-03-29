@@ -21,7 +21,7 @@ object reversefs extends FsRunner {
     import rooted.fs
     start(
       rooted.mapNode {
-        case fs.File(data) => fs.File(data.get.reverse)
+        case File(data) => File(data.get.reverse)
       },
       to
     )
@@ -37,17 +37,13 @@ abstract class FsRunner {
   def usage: String                               = "<from> <to>"
   def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground path(mountPoint)
 
-  // clicking different parts together
-  private def fuseJavaFs(root: Path) =
-    new jio.JavaFilesystem(root) withMappedPath (_.to_s, path)
-
-  class Rooted(val fs: FuseCompatibleFs) extends RootedFs {
-    def this(root: String) = this(fuseJavaFs(path(root)))
-    def this(root: Path) = this(fuseJavaFs(root))
+  class Rooted(val fs: Filesystem) extends RootedFs {
+    def this(root: String) = this(new jio.JavaFilesystem(path(root)))
+    def this(root: Path) = this(new jio.JavaFilesystem(root))
     def getName = name
 
     def filterNot(p: String => Boolean) = new Rooted(fs filterNot p)
-    def mapNode(f: fs.Node =?> fs.Node) = new Rooted(fs mapNode f)
+    def mapNode(f: Node =?> Node)       = new Rooted(fs mapNode f)
   }
 
   def main(args: Array[String]): Unit = {

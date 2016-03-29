@@ -5,12 +5,13 @@ import api._, api.attributes._
 
 class JavaFilesystem(root: jio.Path) extends Filesystem {
 
-  type Path = jio.Path
-  type Data = Array[Byte]
   type Id   = jio.Path
 
   def resolve(path: Path): Id =
     root append path
+
+  def resolve(path: Path, name: Name): Id =
+    resolve(path) / name
 
   def lookup(id: Id): Metadata =
     try {
@@ -87,7 +88,7 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
   implicit val _defaultPerms: Empty[UnixPerms] = Empty(UnixPerms(0))
 
   private def getKidsFrom(path: Path) =
-    Try(path.ls.map(p => p.filename -> p).toMap) | Map.empty
+    Try(path.ls.map(p => p.filename).toSet) | Set.empty
 
   private def bug(t: Throwable): Unit = {
     println("You have found a bug, please check the stacktrace to figure out what causes it")
