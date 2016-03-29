@@ -162,6 +162,7 @@ package object metadata {
   object Attribute {
     type Of[A] = Attribute { type Type = A }
 
+    import scala.language.implicitConversions
     implicit def apply[A](value: A)(implicit key: LenientKey[A]): Of[A] = AttributeOf[A](key, value)
 
     def unapply(x: Attribute): Some[x.Type] = Some(x.value)

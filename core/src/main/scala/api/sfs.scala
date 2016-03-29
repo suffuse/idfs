@@ -17,8 +17,14 @@ trait Filesystem {
 
   def lookup(id: Id): Metadata
 
-  // could be placed in another file, for ease of experimentation I put it here
   def update(id: Id, metadata: Metadata): Unit
 
+  // this method allows for rename or move, it's defined on `Id` to make path manipulation
+  // easier
   def relocate(oldId: Id, newId: Id): Unit
+}
+
+object Filesystem {
+  import scala.language.implicitConversions
+  implicit def FilesystemOps(u: Filesystem) = new fs.FilesystemOps { val fs: u.type = u }
 }

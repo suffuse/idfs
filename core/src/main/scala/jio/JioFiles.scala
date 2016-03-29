@@ -27,7 +27,7 @@ class JioFollow(path: Path) {
   def setAttribute[A](attribute: String, value: A): Path                = F.setAttribute(path, attribute, value)
 
   private def mustFollow[A](opts: Seq[A]): Seq[A]      = opts filterNot (_ == NOFOLLOW_LINKS)
-  private def mustFollowSet[A](opts: jSet[A]): jSet[A] = opts.asScala filterNot (_ == NOFOLLOW_LINKS) asJava
+  private def mustFollowSet[A](opts: jSet[A]): jSet[A] = (opts.asScala filterNot (_ == NOFOLLOW_LINKS)).asJava
 
   def copy(target: Path, options: CopyOption*): Path                                           = F.copy(path, target, mustFollow(options): _*)
   def move(target: Path, options: CopyOption*): Path                                           = F.move(path, target, mustFollow(options): _*)

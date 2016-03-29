@@ -23,6 +23,7 @@ trait Api {
   type uV          = scala.annotation.unchecked.uncheckedVariance
 
   def unit = ()
+  def toPath: String => Path = jio.path
 
   def classOf[A](implicit z: CTag[A]): Class[A] = classTag[A].runtimeClass.asInstanceOf[Class[A]]
   def classTag[A](implicit z: CTag[A]): CTag[A] = z

@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import jio._, api._, fs._
+import api._, fs._
 
 object idfs extends FsRunner {
   def runMain = { case Array(from, to) =>
@@ -35,11 +35,11 @@ abstract class FsRunner {
 
   def name: String                                = this.getClass.shortName
   def usage: String                               = "<from> <to>"
-  def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground path(mountPoint)
+  def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground toPath(mountPoint)
 
   class Rooted(val fs: Filesystem) extends RootedFs {
-    def this(root: String) = this(new jio.JavaFilesystem(path(root)))
     def this(root: Path) = this(new jio.JavaFilesystem(root))
+    def this(root: String) = this(toPath(root))
     def getName = name
 
     def filterNot(p: String => Boolean) = new Rooted(fs filterNot p)

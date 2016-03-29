@@ -7,6 +7,8 @@ package object fuse {
 
   implicit def emptyByteArray: Empty[Array[Byte]] = Empty(Array.empty[Byte])
 
+  val  UTF8 = jio.UTF8
+
   def alreadyExists()  = -EEXIST
   def doesNotExist()   = -ENOENT
   def eok()            = 0
@@ -27,6 +29,7 @@ package object fuse {
     case _    => Vector("-o", "direct_io,default_permissions")
   }
 
+  type ByteBuffer        = jio.ByteBuffer
   type DirectoryFiller   = net.fusejna.DirectoryFiller
   type FileInfo          = net.fusejna.StructFuseFileInfo.FileInfoWrapper
   type FlockCommand      = net.fusejna.FlockCommand
