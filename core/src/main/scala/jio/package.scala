@@ -41,6 +41,7 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def mkfile(bits: Long): Path   = path createFile asFileAttribute(toJavaPermissions(bits))
     def mklink(target: Path): Path = path createSymbolicLink target
     def readlink: Path             = path.readSymbolicLink
+    def lastSegment: Name          = Option(path.getFileName) map (_.to_s) getOrElse ""
 
     def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
     def gid: Int                         = 0 // OMG what a hassle.
@@ -69,13 +70,15 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def blockCount: Long     = (path.size + blockSize - 1) / blockSize
     def blockSize: Long      = 512 // FIXME
     def depth: Int           = path.getNameCount
-    def filename: String     = path.getFileName.to_s
+    def extension: String    = filename.extension
+    def filename: String     = lastSegment
     def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
     def moveTo(target: Path) = path.nofollow move target
     def to_s: String         = path.toString
 
+    def append(other: Path) = jio.path(path.to_s + other.to_s)
 
-    def append(other: Path)      = jio.path(path.to_s + other.to_s)
+    def replaceExtension(newExtension: String): Path = path.resolveSibling(filename replaceExtension newExtension)
 
     def tryLock():jnc.FileLock     = withWriteChannel(_.tryLock)
     def truncate(size: Long): Unit = withWriteChannel {

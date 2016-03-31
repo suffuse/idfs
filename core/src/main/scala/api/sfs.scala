@@ -1,6 +1,8 @@
 package sfs
 package api
 
+import jio._
+
 trait Filesystem {
 
   def resolve(path: Path): Metadata
@@ -15,18 +17,24 @@ trait Store {
 object Filesystem {
   implicit class FilesystemOps(val fs: Filesystem) extends AnyVal {
 
-    def map(f: Metadata => Metadata) =
+    def map(f: (Path => Metadata) => (Path => Metadata)) =
       new Filesystem {
-
         def resolve(path: Path) =
-          f(fs resolve path)
+          f(fs.resolve) apply path
       }
 
-    def mapNode(f: Node =?> Node) = map(_.only[Node] mapOnly f)
+    def mapNode(f: Node =?> Node) =
+      map(_ andThen (_.only[Node] mapOnly f))
 
-    def filter(p: Name => Boolean) = mapNode {
-      case dir: Dir => dir filter p
-    }
+    def filter(p: Name => Boolean) =
+      map(resolve => {
+        case path if p(path.lastSegment) =>
+          resolve(path).only[Node] mapOnly {
+            case dir: Dir => dir filter p
+          }
+        case _ => Metadata
+      })
+
     def filterNot(p: Name => Boolean) = filter(x => !p(x))
 
     def resolve(path: String): Metadata =

@@ -1,9 +1,10 @@
 package sfs
 package fuse
 
-import api._
+import api._, jio._
 
 object idfs extends FsRunner {
+  override def usage = "<from> <to>"
   def runMain = { case Array(from, to) =>
     start(new Rooted(from).logging, to)
   }
@@ -15,14 +16,38 @@ object filterfs extends FsRunner {
   }
 }
 object reversefs extends FsRunner {
-
+  override def usage = "<from> <to>"
   def runMain = { case Array(from, to) =>
-    val rooted = new Rooted(from)
-    import rooted.fs
     start(
-      rooted.mapNode {
+      new Rooted(from) mapNode {
         case File(data) => File(data.get.reverse)
       },
+      to
+    )
+  }
+}
+object mapfs extends FsRunner {
+  override def usage = "<from> <to> <fromExt> <toExt> <command>"
+  def runMain = { case Array(from, to, fromExt, toExt, command) =>
+    start(
+      new Rooted(from).map(
+        resolve => {
+          case path if path.extension == toExt =>
+            resolve(path replaceExtension fromExt).only[Node] mapOnly {
+              case File(data) => File(exec(data.get, command).stdout)
+            }
+
+          case path if path.extension == fromExt =>
+            Metadata
+
+          case path => resolve(path).only[Node] mapOnly {
+            case dir: Dir => dir mapOnly {
+              case name if name.extension == fromExt =>
+                name replaceExtension toExt
+            }
+          }
+        }
+      ),
       to
     )
   }
@@ -42,8 +67,9 @@ abstract class FsRunner {
     def this(root: String) = this(toPath(root))
     def getName = name
 
-    def filterNot(p: String => Boolean) = new Rooted(fs filterNot p, store)
-    def mapNode(f: Node =?> Node)       = new Rooted(fs mapNode f, store)
+    def filterNot(p: String => Boolean)                  = new Rooted(fs filterNot p, store)
+    def mapNode(f: Node =?> Node)                        = new Rooted(fs mapNode f, store)
+    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs map f, store)
   }
 
   def main(args: Array[String]): Unit = {

@@ -19,6 +19,12 @@ final case class  File(data: Lazy[Data])   extends Node
 final case class  Dir (kids: Set[Name])    extends Node {
   def filter(p: Name => Boolean): Dir =
     Dir(kids filter p)
+
+  def map(f: Name => Name): Dir =
+    Dir(kids map f)
+
+  def mapOnly(f: Name =?> Name): Dir =
+    map(x => if (f isDefinedAt x) f(x) else x)
 }
 
 object File extends (Lazy[Data] => File) {
