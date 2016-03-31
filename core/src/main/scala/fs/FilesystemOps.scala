@@ -9,22 +9,15 @@ trait FilesystemOps {
 
   def map(toNewMetadata: Metadata => Metadata, fromNewMetadata: Metadata => Metadata) =
     new Filesystem {
-      type Id = fs.Id
 
       def resolve(path: Path) =
-        fs resolve path
+        (fs resolve path) |> toNewMetadata
 
-      def resolve(path: Path, name: Name): Id =
-        fs resolve (path, name)
+      def update(path: Path, metadata: Metadata): Unit =
+        fs update (path, metadata |> fromNewMetadata)
 
-      def lookup(id: Id) =
-        (fs lookup id) |> toNewMetadata
-
-      def update(id: Id, metadata: Metadata): Unit =
-        fs update (id, metadata |> fromNewMetadata)
-
-      def relocate(oldId: Id, newId: Id) =
-        fs relocate (oldId, newId)
+      def move(oldPath: Path, newPath: Path) =
+        fs move (oldPath, newPath)
     }
 
   def mapNode(f: Node =?> Node) = map(_.only[Node] mapOnly f, identity)
@@ -34,12 +27,12 @@ trait FilesystemOps {
   }
   def filterNot(p: Name => Boolean) = filter(x => !p(x))
 
-  def resolve(path: String): fs.Id =
+  def resolve(path: String): Metadata =
     fs resolve toPath(path)
 
-  def lookup(path: Path): Metadata =
-    fs lookup (fs resolve path)
+  def update(path: String, metadata: Metadata): Unit =
+    fs update (toPath(path), metadata)
 
-  def lookup(path: String): Metadata =
-    lookup(toPath(path))
+  def move(oldPath: String, newPath: String): Unit =
+    fs move (toPath(oldPath), toPath(newPath))
 }

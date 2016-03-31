@@ -5,17 +5,12 @@ import api._, api.attributes._
 
 class JavaFilesystem(root: jio.Path) extends Filesystem {
 
-  type Id   = jio.Path
-
-  def resolve(path: Path): Id =
+  private def resolvePath(path: Path): Path =
     root append path
 
-  def resolve(path: Path, name: Name): Id =
-    resolve(path) / name
-
-  def lookup(id: Id): Metadata =
+  def resolve(path: Path): Metadata =
     try {
-      id match {
+      resolvePath(path) match {
         case path if path.nofollow.exists =>
 
           val metadata = Metadata(
@@ -43,9 +38,9 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
 
   // question: how do we communicate access denied, do we even communicate that?
 
-  def update(id: Id, metadata: Metadata): Unit =
+  def update(path: Path, metadata: Metadata): Unit =
     try {
-      id match {
+      resolvePath(path) match {
         case path if path.nofollow.exists =>
           updateNode(path, metadata)
 
@@ -56,8 +51,8 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
       bug(t)
     }
 
-  def relocate(oldId: Id, newId: Id): Unit =
-    oldId moveTo newId
+  def move(oldPath: Path, newPath: Path): Unit =
+    resolvePath(oldPath) moveTo resolvePath(newPath)
 
   private def newNode(path: Path, metadata: Metadata) =
     metadata[Node] match {
