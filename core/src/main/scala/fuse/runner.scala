@@ -12,14 +12,14 @@ object idfs extends FsRunner {
 object filterfs extends FsRunner {
   override def usage = "<from> <to> <regex>"
   def runMain = { case Array(from, to, regex) =>
-    start(new Rooted(from) filterNot (_ matches regex), to)
+    start(new Rooted(from).reads filterNot (_ matches regex), to)
   }
 }
 object reversefs extends FsRunner {
   override def usage = "<from> <to>"
   def runMain = { case Array(from, to) =>
     start(
-      new Rooted(from) mapNode {
+      new Rooted(from).reads mapNode {
         case File(data) => File(data.get.reverse)
       },
       to
@@ -30,7 +30,7 @@ object mapfs extends FsRunner {
   override def usage = "<from> <to> <fromExt> <toExt> <command>"
   def runMain = { case Array(from, to, fromExt, toExt, command) =>
     start(
-      new Rooted(from).map(
+      new Rooted(from).reads.map(
         resolve => {
           case path if path.extension == toExt =>
             resolve(path replaceExtension fromExt).only[Node] mapOnly {
@@ -67,9 +67,11 @@ abstract class FsRunner {
     def this(root: String) = this(toPath(root))
     def getName = name
 
-    def filterNot(p: String => Boolean)                  = new Rooted(fs.reads filterNot p)
-    def mapNode(f: Node =?> Node)                        = new Rooted(fs.reads mapNode f)
-    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.reads map f)
+    object reads {
+      def filterNot(p: String => Boolean)                  = new Rooted(fs.reads filterNot p)
+      def mapNode(f: Node =?> Node)                        = new Rooted(fs.reads mapNode f)
+      def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.reads map f)
+    }
   }
 
   def main(args: Array[String]): Unit = {
