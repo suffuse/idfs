@@ -74,10 +74,9 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     }
 
   def rename(from: String, to: String): Int = {
-    ((fs resolve from)[Node], (fs resolve to)[Node]) match {
-      case (NoNode, _) => doesNotExist
-      case (_, NoNode) => effect(eok)(fs move (from, to))
-      case _           => alreadyExists
+    (fs resolve from)[Node] match {
+      case NoNode => doesNotExist
+      case _      => effect(eok)(fs move (from, to))
     }
   }
 

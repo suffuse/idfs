@@ -7,6 +7,7 @@ import jnf.{ attribute => jnfa }
 import jnfa.PosixFilePermissions.asFileAttribute
 import jnf.{ Files }
 import jnf.LinkOption.NOFOLLOW_LINKS
+import jnf.StandardCopyOption.REPLACE_EXISTING
 import java.util.concurrent.TimeUnit
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
@@ -73,7 +74,7 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def extension: String    = filename.extension
     def filename: String     = lastSegment
     def mediaType: MediaType = MediaType(exec("file", "--brief", "--mime", "--dereference", to_s).stdout mkString "\n")
-    def moveTo(target: Path) = path.nofollow move target
+    def moveTo(target: Path) = path.nofollow move (target, REPLACE_EXISTING)
     def to_s: String         = path.toString
 
     def append(other: Path) = jio.path(path.to_s + other.to_s)
