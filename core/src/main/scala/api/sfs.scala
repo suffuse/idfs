@@ -15,7 +15,7 @@ trait Filesystem {
 object Filesystem {
   implicit class FilesystemOps(fs: Filesystem) {
 
-    object readonly {
+    object reads {
 
       def map(f: (Path => Metadata) => (Path => Metadata)) =
         new Filesystem {

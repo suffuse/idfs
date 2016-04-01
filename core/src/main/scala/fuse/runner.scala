@@ -67,9 +67,9 @@ abstract class FsRunner {
     def this(root: String) = this(toPath(root))
     def getName = name
 
-    def filterNot(p: String => Boolean)                  = new Rooted(fs.readonly filterNot p)
-    def mapNode(f: Node =?> Node)                        = new Rooted(fs.readonly mapNode f)
-    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.readonly map f)
+    def filterNot(p: String => Boolean)                  = new Rooted(fs.reads filterNot p)
+    def mapNode(f: Node =?> Node)                        = new Rooted(fs.reads mapNode f)
+    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.reads map f)
   }
 
   def main(args: Array[String]): Unit = {
