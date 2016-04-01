@@ -15,8 +15,6 @@ import api._, attributes.UnixPerms.toBitSet
 
 package object jio extends DecorateAsScala with DecorateAsJava with Alias {
   val UTF8          = java.nio.charset.Charset forName "UTF-8"
-  val UnixUserClass = Class.forName("sun.nio.fs.UnixUserPrincipals$User")
-  val UidMethod     = doto(UnixUserClass getDeclaredMethod "uid")(_ setAccessible true)
 
   def createTempDirectory(prefix: String): Path = Files.createTempDirectory(prefix)
   def homeDir: Path                             = path(sys.props("user.home"))
@@ -44,16 +42,17 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def readlink: Path             = path.readSymbolicLink
     def lastSegment: Name          = Option(path.getFileName) map (_.to_s) getOrElse ""
 
-    def uid: Int                         = (UidMethod invoke owner).asInstanceOf[Int]
-    def gid: Int                         = 0 // OMG what a hassle.
+    def uid: Int                         = path.nofollow.getAttribute("unix:uid").asInstanceOf[Int]
+    def gid: Int                         = path.nofollow.getAttribute("unix:gid").asInstanceOf[Int]
     def group: GroupPrincipal            = posixAttributes.group
     def inum: Object                     = basicAttributes.fileKey
     def owner: UserPrincipal             = posixAttributes.owner
     def perms: jSet[PosixFilePermission] = posixAttributes.permissions
     def nlink: Int                       = path.nofollow.getAttribute("unix:nlink").asInstanceOf[Int]
 
+    def birth: FileTime = basicAttributes.creationTime
     def atime: FileTime = basicAttributes.lastAccessTime
-    def ctime: FileTime = basicAttributes.creationTime
+    def ctime: FileTime = path.nofollow.getAttribute("unix:ctime").asInstanceOf[FileTime]
     def mtime: FileTime = basicAttributes.lastModifiedTime
 
     def isDir: Boolean   = path.nofollow.isDirectory

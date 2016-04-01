@@ -47,16 +47,25 @@ object attributes {
       case _            => super.equals(that)
     }
   }
-  implicit val _mtime = new api.Key[Mtime]("modification time in ...")
+  implicit val _mtime = new api.Key[Mtime]("modification time")
 
   final case class Atime(timestamp: FileTime)
-  implicit val _atime = new api.Key[Atime]("access time in ...")
+  implicit val _atime = new api.Key[Atime]("access time")
+
+  final case class Ctime(timestamp: FileTime)
+  implicit val _ctime = new api.Key[Ctime]("node or file change time")
+
+  final case class Birth(timestamp: FileTime)
+  implicit val _birth = new api.Key[Birth]("creation time")
 
   final case class Size(bytes: Long)
   implicit val _size = new api.Key[Size]("size in bytes")
 
   final case class Uid(value: Int)
-  implicit val _uid = new api.Key[Uid]("uid ...")
+  implicit val _uid = new api.Key[Uid]("user id")
+
+  final case class Gid(value: Int)
+  implicit val _gid = new api.Key[Gid]("group id")
 
   final case class BlockCount(amount: Long)
   implicit val _blockCount = new api.Key[BlockCount]("number of blocks")

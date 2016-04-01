@@ -14,10 +14,13 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
         case path if path.nofollow.exists =>
 
           val metadata = Metadata(
+            Birth(path.birth),
             Atime(path.atime),
+            Ctime(path.ctime),
             Mtime(path.mtime),
             UnixPerms(toUnixMask(path.perms)),
             Uid(path.uid),
+            Gid(path.gid),
             Nlink(path.nlink)
           )
 

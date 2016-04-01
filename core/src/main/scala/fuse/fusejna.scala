@@ -133,15 +133,16 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     import api.attributes._
     metadata foreach {
       case Size(bytes)        => stat size   bytes
-      case Atime(timestamp)   => stat atime  timestamp.inSeconds
-      case Mtime(timestamp)   => stat mtime  timestamp.inSeconds
+      case Birth(timestamp)   => // not correctly implemented in stat
+      case Atime(timestamp)   => stat atime  (timestamp.inSeconds, timestamp.inNanoSeconds)
+      case Ctime(timestamp)   => stat ctime  (timestamp.inSeconds, timestamp.inNanoSeconds)
+      case Mtime(timestamp)   => stat mtime  (timestamp.inSeconds, timestamp.inNanoSeconds)
       case BlockCount(amount) => stat blocks amount
       case Uid(value)         => stat uid    value
+      case Gid(value)         => stat gid    value
       case UnixPerms(mask)    => stat mode   (node.asFuseBits | mask)
       case Nlink(count)       => stat nlink  count
     }
-
-    stat gid    getGID // XXX huge hassle.
   }
 
   implicit class NodeOps(val node: Node) {
@@ -292,10 +293,7 @@ trait FuseFs extends FuseFilesystem {
   def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = false)
   def mountForeground(mountPoint: Path): this.type = doMount(mountPoint, blocking = true)
 
-  def fuseContext(): FuseContext  = super.getFuseContext
   def getOptions(): Array[String] = options.toArray
 
   def options: Vector[String] = fuse.defaultOptions
-  def getUID(): Long = if (isMounted) fuseContext.uid.longValue else 0
-  def getGID(): Long = if (isMounted) fuseContext.gid.longValue else 0
 }
