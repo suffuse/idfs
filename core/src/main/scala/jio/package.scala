@@ -11,7 +11,7 @@ import jnf.StandardCopyOption.REPLACE_EXISTING
 import java.util.concurrent.TimeUnit
 import javax.naming.SizeLimitExceededException
 import scala.collection.convert.{ DecorateAsScala, DecorateAsJava }
-import api._, attributes.Mtime, attributes.UnixPerms.toBitSet
+import api._, attributes.UnixPerms.toBitSet
 
 package object jio extends DecorateAsScala with DecorateAsJava with Alias {
   val UTF8          = java.nio.charset.Charset forName "UTF-8"

@@ -27,14 +27,15 @@ object reversefs extends FsRunner {
   }
 }
 object mapfs extends FsRunner {
-  override def usage = "<from> <to> <fromExt> <toExt> <command>"
-  def runMain = { case Array(from, to, fromExt, toExt, command) =>
+  override def usage = "<from> <to> <fromExt> <toExt> <from-to-command> <to-from-command>\n" +
+                       " example: /source /mnt json yaml json2yaml yaml2json"
+  def runMain = { case Array(from, to, fromExt, toExt, fromToCommand, toFromCommand) =>
     start(
-      new Rooted(from).reads.map(
-        resolve => {
+      new Rooted(from).map(
+        sourceToUser = resolve => {
           case path if path.extension == toExt =>
             resolve(path replaceExtension fromExt).only[Node] mapOnly {
-              case File(data) => File(exec(data.get, command).stdout)
+              case File(data) => File(exec(data.get, fromToCommand).stdout)
             }
 
           case path if path.extension == fromExt =>
@@ -46,6 +47,16 @@ object mapfs extends FsRunner {
                 name replaceExtension toExt
             }
           }
+        },
+        userToSource = {
+          case (path, metadata) if path.extension == toExt =>
+            val newPath = path replaceExtension fromExt
+            val newMetadata = metadata.only[Node] mapOnly {
+              case File(data) => File(exec(data.get, toFromCommand).stdout)
+            }
+            newPath -> newMetadata
+
+          case x => x
         }
       ),
       to
@@ -72,6 +83,11 @@ abstract class FsRunner {
       def mapNode(f: Node =?> Node)                        = new Rooted(fs.reads mapNode f)
       def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.reads map f)
     }
+
+    def map(
+      sourceToUser: (Path => Metadata) => (Path => Metadata),
+      userToSource: ((Path, Metadata)) => (Path, Metadata)
+    ) = new Rooted(fs map (sourceToUser, userToSource))
   }
 
   def main(args: Array[String]): Unit = {

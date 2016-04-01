@@ -13,23 +13,31 @@ trait Filesystem {
 }
 
 object Filesystem {
-  implicit class FilesystemOps(fs: Filesystem) {
+  implicit class FilesystemOps(fs: Filesystem) { ops =>
+
+    def map(
+      sourceToUser: (Path => Metadata) => (Path => Metadata),
+      userToSource: ((Path, Metadata)) => (Path, Metadata)
+    ) = {
+
+      new Filesystem {
+        def resolve(path: Path) =
+          sourceToUser(fs.resolve) apply path
+
+        def update(path: Path, metadata: Metadata): Unit = {
+          val (p, m) = userToSource(path, metadata)
+          fs update (p, m)
+        }
+
+        def move(oldPath: Path, newPath: Path): Unit =
+          fs move (oldPath, newPath)
+      }
+    }
 
     object reads {
 
       def map(f: (Path => Metadata) => (Path => Metadata)) =
-        new Filesystem {
-          def resolve(path: Path) = {
-            val metadata = f(fs.resolve) apply path
-            metadata.only[UnixPerms] map (_.noWrites)
-          }
-
-          def update(path: Path, metadata: Metadata): Unit =
-            fs update (path, metadata)
-
-          def move(oldPath: Path, newPath: Path): Unit =
-            fs move (oldPath, newPath)
-        }
+        ops.map(f andThen (_ andThen (_.only[UnixPerms] map (_.noWrites))), identity)
 
       def mapNode(f: Node =?> Node) =
         map(_ andThen (_.only[Node] mapOnly f))
