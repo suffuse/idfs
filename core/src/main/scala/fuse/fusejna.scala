@@ -7,7 +7,6 @@ import scala.language.existentials
 abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 
   def fs: Filesystem
-  def store: Store
 
   def logging(): this.type = doto[this.type](this)(_ log true)
 
@@ -29,7 +28,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
       buf get arr
       arr
     }
-    effect(size.toInt)(store update (path, Metadata(File(data))))
+    effect(size.toInt)(fs update (path, Metadata(File(data))))
   }
 
   def readdir(path: String, filler: DirectoryFiller): Int =
@@ -53,7 +52,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     import Node._
     mode.`type`() match {
       case Dir             => mkdir(path, mode)
-      case File            => effect(eok)(store update (path, Metadata set empty[File] set UnixPerms(mode.mode)))
+      case File            => effect(eok)(fs update (path, Metadata set empty[File] set UnixPerms(mode.mode)))
       case Fifo | Socket   => notSupported
       case BlockDev | Link => notSupported
     }
@@ -61,7 +60,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 
   def mkdir(path: String, mode: ModeInfo): Int = {
     (fs resolve path)[Node] match {
-      case NoNode => effect(eok)(store update (path, Metadata set empty[Dir] set UnixPerms(mode.mode)))
+      case NoNode => effect(eok)(fs update (path, Metadata set empty[Dir] set UnixPerms(mode.mode)))
       case _      => alreadyExists
     }
   }
@@ -77,7 +76,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
   def rename(from: String, to: String): Int = {
     ((fs resolve from)[Node], (fs resolve to)[Node]) match {
       case (NoNode, _) => doesNotExist
-      case (_, NoNode) => effect(eok)(store move (from, to))
+      case (_, NoNode) => effect(eok)(fs move (from, to))
       case _           => alreadyExists
     }
   }
@@ -86,27 +85,27 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     (fs resolve path)[Node] match {
       case NoNode                     => doesNotExist
       case Dir(kids) if kids.nonEmpty => notEmpty
-      case _                          => effect(eok)(store update (path, Metadata set NoNode))
+      case _                          => effect(eok)(fs update (path, Metadata set NoNode))
     }
   }
 
   def unlink(path: String): Int = {
     (fs resolve path)[Node] match {
       case NoNode => doesNotExist
-      case _      => effect(eok)(store update (path, Metadata set NoNode))
+      case _      => effect(eok)(fs update (path, Metadata set NoNode))
     }
   }
 
   def chmod(path: String, mode: ModeInfo): Int = {
     (fs resolve path)[Node] match {
       case NoNode => doesNotExist
-      case _      => effect(eok)(store update (path, Metadata set UnixPerms(mode.mode)))
+      case _      => effect(eok)(fs update (path, Metadata set UnixPerms(mode.mode)))
     }
   }
 
   def symlink(target: String, linkName: String): Int = {
     (fs resolve linkName)[Node] match {
-      case NoNode => effect(eok)(store update(linkName, Metadata set Link(target)))
+      case NoNode => effect(eok)(fs update(linkName, Metadata set Link(target)))
       case _      => alreadyExists
     }
   }
@@ -118,7 +117,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     (fs resolve path) |> { metadata =>
       metadata[Node] match {
         case NoNode  => doesNotExist
-        case File(_) => effect(eok)(store update (path, metadata set Size(size)))
+        case File(_) => effect(eok)(fs update (path, metadata set Size(size)))
         case _       => isNotValid
       }
     }
@@ -127,7 +126,7 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
   def utimens(path: String, wrapper: TimeBufferWrapper) = {
     (fs resolve path)[Node] match {
       case NoNode => doesNotExist
-      case _      => effect(eok)(store update (path, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
+      case _      => effect(eok)(fs update (path, Metadata set Mtime(FileTime.nanos(wrapper.mod_nsec))))
     }
   }
 

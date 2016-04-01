@@ -11,8 +11,13 @@ object attributes {
 
   final case class UnixPerms(mask: Long) {
     override def toString = UnixPerms permString mask
+    def noWrites: UnixPerms =
+      UnixPerms(mask & (UnixPerms toMask "r-xr-xr-x"))
   }
   object UnixPerms {
+
+    def toBitSet(mask: Long): Set[Long] = BitsSet filter (bit => (bit & mask) != 0)
+
     val Bits = Vector[Long](
       1 << 8,
       1 << 7,
@@ -30,7 +35,8 @@ object attributes {
     private def permString(mask: Long): String =
       ( for ((perm, ch) <- Bits zip Letters) yield if ((mask & perm) == 0) '-' else ch ) mkString ""
 
-    def toBitSet(mask: Long): Set[Long] = BitsSet filter (bit => (bit & mask) != 0)
+    private def toMask(perms: String): Long =
+      ( for ((perm, ch) <- Bits zip perms.toSeq ; if ch != '-') yield perm ).foldLeft(0L)(_ | _)
   }
   implicit val _unixPerms = new Key[UnixPerms]("unix permissions")
 

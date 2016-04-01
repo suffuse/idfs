@@ -36,20 +36,6 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
       Metadata
     }
 
-  private def getKidsFrom(path: Path) =
-    Try(path.ls.map(p => p.filename).toSet) | Set.empty
-
-  private def bug(t: Throwable): Unit = {
-    println("You have found a bug, please check the stacktrace to figure out what causes it")
-    t.printStackTrace()
-  }
-}
-
-class JavaStore(root: jio.Path) extends Store {
-
-  private def resolvePath(path: Path): Path =
-    root append path
-
   def update(path: Path, metadata: Metadata): Unit =
     try {
       resolvePath(path) match {
@@ -93,6 +79,9 @@ class JavaStore(root: jio.Path) extends Store {
 
   // we probably need other defaults
   private implicit val _defaultPerms: Empty[UnixPerms] = Empty(UnixPerms(0))
+
+  private def getKidsFrom(path: Path) =
+    Try(path.ls.map(p => p.filename).toSet) | Set.empty
 
   private def bug(t: Throwable): Unit = {
     println("You have found a bug, please check the stacktrace to figure out what causes it")

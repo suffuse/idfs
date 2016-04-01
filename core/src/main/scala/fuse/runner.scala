@@ -62,14 +62,14 @@ abstract class FsRunner {
   def usage: String                               = "<from> <to>"
   def start(fs: FuseFs, mountPoint: String): Unit = fs mountForeground toPath(mountPoint)
 
-  class Rooted(val fs: Filesystem, val store: Store) extends RootedFs {
-    def this(root: Path) = this(new jio.JavaFilesystem(root), new jio.JavaStore(root))
+  class Rooted(val fs: Filesystem) extends RootedFs {
+    def this(root: Path) = this(new jio.JavaFilesystem(root))
     def this(root: String) = this(toPath(root))
     def getName = name
 
-    def filterNot(p: String => Boolean)                  = new Rooted(fs filterNot p, store)
-    def mapNode(f: Node =?> Node)                        = new Rooted(fs mapNode f, store)
-    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs map f, store)
+    def filterNot(p: String => Boolean)                  = new Rooted(fs.readonly filterNot p)
+    def mapNode(f: Node =?> Node)                        = new Rooted(fs.readonly mapNode f)
+    def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.readonly map f)
   }
 
   def main(args: Array[String]): Unit = {
