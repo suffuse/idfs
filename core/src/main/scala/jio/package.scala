@@ -43,7 +43,9 @@ package object jio extends DecorateAsScala with DecorateAsJava with Alias {
     def lastSegment: Name          = Option(path.getFileName) map (_.to_s) getOrElse ""
 
     def uid: Int                         = path.nofollow.getAttribute("unix:uid").asInstanceOf[Int]
+    def uid_=(id: Int)                     = path.nofollow.setAttribute("unix:uid", id)
     def gid: Int                         = path.nofollow.getAttribute("unix:gid").asInstanceOf[Int]
+    def gid_=(id: Int)                     = path.nofollow.setAttribute("unix:gid", id)
     def group: GroupPrincipal            = posixAttributes.group
     def inum: Object                     = basicAttributes.fileKey
     def owner: UserPrincipal             = posixAttributes.owner

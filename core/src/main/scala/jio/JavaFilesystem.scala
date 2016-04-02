@@ -78,6 +78,8 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
       case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
       case Mtime(timestamp) => path setLastModifiedTime timestamp
       case File(data)       => path.follow write data.get
+      case Gid(id)          => path.gid = id
+      case Uid(id)          => path.uid = id
     }
 
   // we probably need other defaults

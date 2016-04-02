@@ -111,12 +111,11 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
       case _      => effect(eok)(update(path, UnixPerms(mode.mode)))
     }
 
-  //  Change the given object's owner and group to the provided values. See chown(2) for details.
-  //  NOTE: FUSE doesn't deal particularly well with file ownership, since it usually runs as an
-  //  unprivileged user and this call is restricted to the superuser. It's often easier to pretend
-  //  that all files are owned by the user who mounted the filesystem, and to skip implementing
-  //  this function.
-  def chown(path: String, uid: Long, gid: Long): Int = eok
+  def chown(path: String, uid: Long, gid: Long): Int =
+    resolve(path)[Node] match {
+      case NoNode => doesNotExist
+      case _      => effect(eok)(update(path, Uid(uid.toInt), Gid(gid.toInt)))
+    }
 
   def truncate(path: String, size: Long): Int =
     resolve(path) |> { metadata =>
@@ -167,8 +166,8 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
   private def createLink(path: String, target: String, attrs: Attribute*) =
     fs update (toPath(path), Metadata(attrs: _*) set Link(target))
 
-  private def update(path: String, attr: Attribute) =
-    fs update (toPath(path), Metadata(attr))
+  private def update(path: String, attrs: Attribute *) =
+    fs update (toPath(path), Metadata(attrs: _*))
 
   private def move(from: String, to: String) =
     fs move (toPath(from), toPath(to))
