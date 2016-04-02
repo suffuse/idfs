@@ -54,14 +54,5 @@ object Filesystem {
       def filterNot(p: Name => Boolean) = filter(x => !p(x))
 
     }
-
-    def resolve(path: String): Metadata =
-      fs resolve toPath(path)
-
-    def move(oldPath: String, newPath: String) =
-      fs move (toPath(oldPath), toPath(newPath))
-
-    def update(path: String, metadata: Metadata) =
-      fs update (toPath(path), metadata)
   }
 }
