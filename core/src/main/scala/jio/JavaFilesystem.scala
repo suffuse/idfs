@@ -39,47 +39,30 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
       Metadata
     }
 
-  def update(path: Path, metadata: Metadata): Unit =
+  def update(path: Path, update: Update): Unit =
     try {
-      resolvePath(path) match {
-        case path if path.nofollow.exists =>
-          updateNode(path, metadata)
-
-        case path =>
-          newNode(path, metadata)
+      val unresolvedPath = path
+      resolvePath(unresolvedPath) |> { path =>
+        update match {
+          case Remove             => path.delete()
+          case Write(data)        => path.follow write data
+          case CreateFile(perms)  => path mkfile perms.mask
+          case CreateDir(perms)   => path mkdir  perms.mask
+          case CreateLink(target) => path mklink toPath(target)
+          case Move(to)           => path moveTo resolvePath(to)
+          case UpdateAttribute(a) =>
+            a.value match {
+              case Size(size)       => path truncate size
+              case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
+              case Mtime(timestamp) => path setLastModifiedTime timestamp
+              case Gid(id)          => path.gid = id
+              case Uid(id)          => path.uid = id
+            }
+          case Multiple(updates)  => updates foreach (this update (unresolvedPath, _))
+        }
       }
     } catch { case t: Throwable =>
       bug(t)
-    }
-
-  def move(oldPath: Path, newPath: Path): Unit =
-    resolvePath(oldPath) moveTo resolvePath(newPath)
-
-  private def newNode(path: Path, metadata: Metadata) =
-    metadata[Node] match {
-      case NoNode =>
-        // easy, don't do anything
-
-      case File(data) =>
-        (path mkfile metadata[UnixPerms].mask).nofollow write data.get
-
-      case Dir(kids) if kids.nonEmpty => throw new UnsupportedOperationException("we do not support creating a dir with kids")
-      case Dir(_) =>
-        path mkdir metadata[UnixPerms].mask
-
-      case Link(target) =>
-        path mklink jio.path(target)
-    }
-
-  private def updateNode(path: Path, metadata: Metadata) =
-    metadata.foreach {
-      case NoNode           => path.delete()
-      case Size(size)       => path truncate size
-      case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
-      case Mtime(timestamp) => path setLastModifiedTime timestamp
-      case File(data)       => path.follow write data.get
-      case Gid(id)          => path.gid = id
-      case Uid(id)          => path.uid = id
     }
 
   // we probably need other defaults

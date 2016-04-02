@@ -152,25 +152,25 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     fs resolve toPath(path)
 
   private def remove(path: String) =
-    fs update (toPath(path), Metadata set NoNode)
+    fs update (toPath(path), Remove)
 
   private def write(path: String, data: => Array[Byte]) =
-    fs update (toPath(path), Metadata set File(data))
+    fs update (toPath(path), Write(data))
 
-  private def createFile(path: String, attrs: Attribute*) =
-    fs update (toPath(path), Metadata(attrs: _*) set empty[File])
+  private def createFile(path: String, perms: UnixPerms) =
+    fs update (toPath(path), CreateFile(perms))
 
-  private def createDir(path: String, attrs: Attribute*) =
-    fs update (toPath(path), Metadata(attrs: _*) set empty[Dir])
+  private def createDir(path: String, perms: UnixPerms) =
+    fs update (toPath(path), CreateDir(perms))
 
-  private def createLink(path: String, target: String, attrs: Attribute*) =
-    fs update (toPath(path), Metadata(attrs: _*) set Link(target))
+  private def createLink(path: String, target: String) =
+    fs update (toPath(path), CreateLink(target))
 
-  private def update(path: String, attrs: Attribute *) =
-    fs update (toPath(path), Metadata(attrs: _*))
+  private def update(path: String, attributes: Attribute *) =
+    fs update (toPath(path), Multiple(attributes map UpdateAttribute))
 
   private def move(from: String, to: String) =
-    fs move (toPath(from), toPath(to))
+    fs update (toPath(from), Move(toPath(to)))
 
   private implicit class NodeOps(val node: Node) {
     def asFuseBits = node match {

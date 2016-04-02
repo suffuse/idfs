@@ -49,12 +49,9 @@ object mapfs extends FsRunner {
           }
         },
         userToSource = {
-          case (path, metadata) if path.extension == toExt =>
+          case (path, Write(data)) if path.extension == toExt =>
             val newPath = path replaceExtension fromExt
-            val newMetadata = metadata.only[Node] mapOnly {
-              case File(data) => File(exec(data.get, toFromCommand).stdout)
-            }
-            newPath -> newMetadata
+            newPath -> Write(exec(data, toFromCommand).stdout)
 
           case x => x
         }
@@ -86,7 +83,7 @@ abstract class FsRunner {
 
     def map(
       sourceToUser: (Path => Metadata) => (Path => Metadata),
-      userToSource: ((Path, Metadata)) => (Path, Metadata)
+      userToSource: ((Path, Update)) => (Path, Update)
     ) = new Rooted(fs map (sourceToUser, userToSource))
   }
 

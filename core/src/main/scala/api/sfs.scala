@@ -3,13 +3,21 @@ package api
 
 import jio._, attributes._
 
+sealed trait Update
+case class CreateFile(permissions: UnixPerms) extends Update
+case class CreateDir (permissions: UnixPerms) extends Update
+case class CreateLink(target: String)         extends Update
+case class UpdateAttribute(attr: Attribute)   extends Update
+case class Move(to: Path)                     extends Update
+case class Write(data: Data)                  extends Update
+case class Multiple(updates: Seq[Update])     extends Update
+case object Remove                            extends Update
+
 trait Filesystem {
 
   def resolve(path: Path): Metadata
 
-  def update(path: Path, metadata: Metadata): Unit
-
-  def move(oldPath: Path, newPath: Path): Unit
+  def update(path: Path, update: Update): Unit
 }
 
 object Filesystem {
@@ -17,20 +25,17 @@ object Filesystem {
 
     def map(
       sourceToUser: (Path => Metadata) => (Path => Metadata),
-      userToSource: ((Path, Metadata)) => (Path, Metadata)
+      userToSource: ((Path, Update)) => (Path, Update)
     ) = {
 
       new Filesystem {
         def resolve(path: Path) =
           sourceToUser(fs.resolve) apply path
 
-        def update(path: Path, metadata: Metadata): Unit = {
-          val (p, m) = userToSource(path, metadata)
-          fs update (p, m)
+        def update(path: Path, update: Update): Unit = {
+          val (p, u) = userToSource(path, update)
+          fs update (p, u)
         }
-
-        def move(oldPath: Path, newPath: Path): Unit =
-          fs move (oldPath, newPath)
       }
     }
 
