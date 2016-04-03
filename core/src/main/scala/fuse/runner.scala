@@ -61,11 +61,10 @@ object mapfs extends FsRunner {
           case Move(path, to) if to.extension == toExt =>
             for {
               metadata <- Resolve(path)
-              data     =
-                metadata[Node] match {
-                  case File(data) => data.get
-                  case _          => empty[Data]
-                }
+              data     =  metadata[Node] match {
+                            case File(data) => data.get
+                            case _          => empty[Data]
+                          }
               _        <- Write(path, exec(data, toFromCommand).stdout)
               _        <- Move(path, to replaceExtension fromExt)
             } yield ()
@@ -91,13 +90,13 @@ abstract class FsRunner {
     def getName = name
 
     object reads {
-      def filterNot(p: String => Boolean)     = new Rooted(fs.reads filterNot p)
-      def mapNode(f: Node =?> Node)           = new Rooted(fs.reads mapNode f)
-      def map(f: Metadata => Metadata)        = new Rooted(fs.reads map f)
-      def transform(transformer: Transformer) = new Rooted(fs.reads transform transformer)
+      def filterNot(p: String => Boolean)          = new Rooted(fs.reads filterNot p)
+      def mapNode(f: Node =?> Node)                = new Rooted(fs.reads mapNode f)
+      def map(f: Metadata => Metadata)             = new Rooted(fs.reads map f)
+      def transform(transformer: Action ~> Action) = new Rooted(fs.reads transform transformer)
     }
 
-    def transform(transformer: Transformer) = new Rooted(fs transform transformer)
+    def transform(transformer: Action ~> Action) = new Rooted(fs transform transformer)
   }
 
   def main(args: Array[String]): Unit = {

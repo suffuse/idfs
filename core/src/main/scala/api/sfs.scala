@@ -11,7 +11,7 @@ object Filesystem {
 
   implicit class FilesystemOps(fs: Filesystem) { ops =>
 
-    def transform(transformer: Transformer) =
+    def transform(transformer: Action ~> Action) =
       new Filesystem {
         def apply[A](action: Action[A]): A =
           fs apply transformer(action)
@@ -19,14 +19,13 @@ object Filesystem {
 
     object reads {
 
-      def removeWrites =
-        new Transformer {
-          def transform[A] = {
-            case action: Resolve => action map (_.only[UnixPerms] map (_.noWrites))
-          }
+      def removeWrites = new Transformer {
+        def transform[A] = {
+          case action: Resolve => action map (_.only[UnixPerms] map (_.noWrites))
         }
+      }
 
-      def transform(transformer: Transformer) =
+      def transform(transformer: Action ~> Action) =
         ops transform (transformer andThen removeWrites)
 
       def map(f: Metadata => Metadata) =
@@ -92,13 +91,8 @@ trait FsActionsOnly { _: Filesystem =>
     }
 }
 
-trait Transformer { self =>
+trait Transformer extends (Action ~> Action) {
   def apply[A](action: Action[A]): Action[A] = if (transform isDefinedAt action) transform(action) else action
   def transform[A]: Action[A] =?> Action[A]
-  def andThen(transformer: Transformer): Transformer =
-    new Transformer {
-      def transform[A] = {
-        case action => transformer(self(action))
-      }
-    }
 }
+
