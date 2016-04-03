@@ -141,7 +141,8 @@ package object metadata {
 
     def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
   }
-  object Metadata extends Metadata(Vector()) {
+  object Metadata {
+    def empty: Metadata = new Metadata(Vector())
     def apply(attributes: Attribute*): Metadata = new Metadata(attributes.toVector)
   }
 

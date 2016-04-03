@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import api._, jio._
+import api._, jio._, attributes._
 
 object idfs extends FsRunner {
   override def usage = "<from> <to>"
@@ -31,31 +31,46 @@ object mapfs extends FsRunner {
                        " example: /source /mnt json yaml json2yaml yaml2json"
   def runMain = { case Array(from, to, fromExt, toExt, fromToCommand, toFromCommand) =>
     start(
-      new Rooted(from).map(
-        sourceToUser = resolve => {
-          case path if path.extension == toExt =>
-            resolve(path replaceExtension fromExt).only[Node] mapOnly {
-              case File(data) => File(exec(data.get, fromToCommand).stdout)
+      new Rooted(from) transform new Transformer {
+        def transform[A] = {
+
+          case Resolve(path) if path.extension == toExt =>
+            for { metadata <- Resolve(path replaceExtension fromExt) }
+            yield metadata[Node] match {
+              case File(data) =>
+                val newData = exec(data.get, fromToCommand).stdout
+                metadata set File(newData) set Size(newData.size)
+              case x => metadata
             }
 
-          case path if path.extension == fromExt =>
-            Metadata
+          case action @ Resolve(path) if path.extension == fromExt =>
+            InstantResult(empty[Metadata])
 
-          case path => resolve(path).only[Node] mapOnly {
-            case dir: Dir => dir mapOnly {
-              case name if name.extension == fromExt =>
-                name replaceExtension toExt
-            }
-          }
-        },
-        userToSource = {
-          case (path, Write(data)) if path.extension == toExt =>
-            val newPath = path replaceExtension fromExt
-            newPath -> Write(exec(data, toFromCommand).stdout)
+          case action: Resolve =>
+            action.map(_.only[Node] map {
+              case dir: Dir => dir mapOnly {
+                case name if name.extension == fromExt =>
+                  name replaceExtension toExt
+              }
+              case x => x // some compiler bug has a problem with `mapOnly`
+            })
 
-          case x => x
+          case Write(path, data) if path.extension == toExt =>
+            Write(path replaceExtension fromExt, exec(data, toFromCommand).stdout)
+
+          case Move(path, to) if to.extension == toExt =>
+            for {
+              metadata <- Resolve(path)
+              data     =
+                metadata[Node] match {
+                  case File(data) => data.get
+                  case _          => empty[Data]
+                }
+              _        <- Write(path, exec(data, toFromCommand).stdout)
+              _        <- Move(path, to replaceExtension fromExt)
+            } yield ()
         }
-      ),
+      },
       to
     )
   }
@@ -76,15 +91,13 @@ abstract class FsRunner {
     def getName = name
 
     object reads {
-      def filterNot(p: String => Boolean)                  = new Rooted(fs.reads filterNot p)
-      def mapNode(f: Node =?> Node)                        = new Rooted(fs.reads mapNode f)
-      def map(f: (Path => Metadata) => (Path => Metadata)) = new Rooted(fs.reads map f)
+      def filterNot(p: String => Boolean)     = new Rooted(fs.reads filterNot p)
+      def mapNode(f: Node =?> Node)           = new Rooted(fs.reads mapNode f)
+      def map(f: Metadata => Metadata)        = new Rooted(fs.reads map f)
+      def transform(transformer: Transformer) = new Rooted(fs.reads transform transformer)
     }
 
-    def map(
-      sourceToUser: (Path => Metadata) => (Path => Metadata),
-      userToSource: ((Path, Update)) => (Path, Update)
-    ) = new Rooted(fs map (sourceToUser, userToSource))
+    def transform(transformer: Transformer) = new Rooted(fs transform transformer)
   }
 
   def main(args: Array[String]): Unit = {

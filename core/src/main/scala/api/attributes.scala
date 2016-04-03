@@ -16,6 +16,8 @@ object attributes {
   }
   object UnixPerms {
 
+    def apply(perms: String): UnixPerms = UnixPerms(toMask(perms))
+
     def toBitSet(mask: Long): Set[Long] = BitsSet filter (bit => (bit & mask) != 0)
 
     val Bits = Vector[Long](

@@ -3,15 +3,16 @@ package jio
 
 import api._, api.attributes._
 
-class JavaFilesystem(root: jio.Path) extends Filesystem {
+class JavaFilesystem(root: jio.Path) extends Filesystem with FsActionsOnly {
 
   private def resolvePath(path: Path): Path =
     root append path
 
-  def resolve(path: Path): Metadata =
+  def handleFsAction[A](action: FsAction[A]): A =
     try {
-      resolvePath(path) match {
-        case path if path.nofollow.exists =>
+      action mapPath resolvePath match {
+
+        case Resolve(path) if path.nofollow.exists =>
 
           val metadata = Metadata(
             Birth(path.birth),
@@ -31,39 +32,30 @@ class JavaFilesystem(root: jio.Path) extends Filesystem {
           }
           else metadata
 
-        case _ =>
-          Metadata
-      }
-    } catch { case t: Throwable =>
-      bug(t)
-      Metadata
-    }
+        case Resolve(_) =>
+          empty[Metadata]
 
-  def update(path: Path, update: Update): Unit =
-    try {
-      val unresolvedPath = path
-      resolvePath(unresolvedPath) |> { path =>
-        update match {
-          case Remove             => path.delete()
-          case Write(data)        => path.follow write data
-          case CreateFile(perms)  => path mkfile perms.mask
-          case CreateDir(perms)   => path mkdir  perms.mask
-          case CreateLink(target) => path mklink toPath(target)
-          case Move(to)           => path moveTo resolvePath(to)
-          case UpdateAttribute(a) =>
-            a.value match {
-              case Size(size)       => path truncate size
-              case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
-              case Mtime(timestamp) => path setLastModifiedTime timestamp
-              case Gid(id)          => path.gid = id
-              case Uid(id)          => path.uid = id
-            }
-          case Multiple(updates)  => updates foreach (this update (unresolvedPath, _))
-        }
+        case Remove(path)             => asUnit(path.delete())
+        case Write(path, data)        => asUnit(path.follow write data)
+        case CreateFile(path, perms)  => asUnit(path mkfile perms.mask)
+        case CreateDir(path, perms)   => asUnit(path mkdir  perms.mask)
+        case CreateLink(path, target) => asUnit(path mklink toPath(target))
+        case Move(path, to)           => asUnit(path moveTo resolvePath(to))
+        case Update(path, metadata)   =>
+          metadata foreach {
+            case Size(size)       => path truncate size
+            case UnixPerms(mask)  => path setPosixFilePermissions toJavaPermissions(mask)
+            case Mtime(timestamp) => path setLastModifiedTime timestamp
+            case Gid(id)          => path.gid = id
+            case Uid(id)          => path.uid = id
+          }
       }
-    } catch { case t: Throwable =>
-      bug(t)
-    }
+   } catch { case t: Throwable =>
+     bug(t)
+     action.empty
+   }
+
+  private def asUnit[A](a: A): Unit = {}
 
   // we probably need other defaults
   private implicit val _defaultPerms: Empty[UnixPerms] = Empty(UnixPerms(0))

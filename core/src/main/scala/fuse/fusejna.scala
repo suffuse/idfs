@@ -149,28 +149,28 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
     }
 
   private def resolve(path: String) =
-    fs resolve toPath(path)
+    fs apply Resolve(toPath(path))
 
   private def remove(path: String) =
-    fs update (toPath(path), Remove)
+    fs apply Remove(toPath(path))
 
   private def write(path: String, data: => Array[Byte]) =
-    fs update (toPath(path), Write(data))
+    fs apply Write(toPath(path), data)
 
   private def createFile(path: String, perms: UnixPerms) =
-    fs update (toPath(path), CreateFile(perms))
+    fs apply CreateFile(toPath(path), perms)
 
   private def createDir(path: String, perms: UnixPerms) =
-    fs update (toPath(path), CreateDir(perms))
+    fs apply CreateDir(toPath(path), perms)
 
   private def createLink(path: String, target: String) =
-    fs update (toPath(path), CreateLink(target))
+    fs apply CreateLink(toPath(path), target)
 
   private def update(path: String, attributes: Attribute *) =
-    fs update (toPath(path), Multiple(attributes map UpdateAttribute))
+    fs apply Update(toPath(path), Metadata(attributes: _*))
 
   private def move(from: String, to: String) =
-    fs update (toPath(from), Move(toPath(to)))
+    fs apply Move(toPath(from), toPath(to))
 
   private implicit class NodeOps(val node: Node) {
     def asFuseBits = node match {

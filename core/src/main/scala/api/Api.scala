@@ -22,6 +22,9 @@ trait Api {
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
 
+  implicit val _emptyMetadata: Empty[Metadata] = Empty(Metadata.empty)
+  implicit val _emptyUnit    : Empty[Unit]     = Empty({})
+
   def unit = ()
   def toPath: String => Path = jio.path
 
