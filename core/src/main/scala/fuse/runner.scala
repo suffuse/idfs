@@ -30,47 +30,14 @@ object mapfs extends FsRunner {
   override def usage = "<from> <to> <fromExt> <toExt> <from-to-command> <to-from-command>\n" +
                        " example: /source /mnt json yaml json2yaml yaml2json"
   def runMain = { case Array(from, to, fromExt, toExt, fromToCommand, toFromCommand) =>
+    val e = new transformers.WithExtensionPair(fromExt, toExt)
     start(
-      new Rooted(from) transform new Transformer {
-        def transform[A] = {
-
-          case Resolve(path) if path.extension == toExt =>
-            for { metadata <- Resolve(path replaceExtension fromExt) }
-            yield metadata[Node] match {
-              case File(data) =>
-                val newData = exec(data.get, fromToCommand).stdout
-                metadata set File(newData) set Size(newData.size)
-              case x => metadata
-            }
-
-          case action @ Resolve(path) if path.extension == fromExt =>
-            InstantResult(empty[Metadata])
-
-          case action: Resolve =>
-            action.map(_.only[Node] map {
-              case dir: Dir => dir mapOnly {
-                case name if name.extension == fromExt =>
-                  name replaceExtension toExt
-              }
-              case x => x // some compiler bug has a problem with `mapOnly` on metadata
-                          // it doesn't like the `PartialFunction` in there
-            })
-
-          case Write(path, data) if path.extension == toExt =>
-            Write(path replaceExtension fromExt, exec(data, toFromCommand).stdout)
-
-          case Move(path, to) if to.extension == toExt =>
-            for {
-              metadata <- Resolve(path)
-              data     =  metadata[Node] match {
-                            case File(data) => data.get
-                            case _          => empty[Data]
-                          }
-              _        <- Write(path, exec(data, toFromCommand).stdout)
-              _        <- Move(path, to replaceExtension fromExt)
-            } yield ()
-        }
-      },
+      new Rooted(from) transform (
+        (
+          e.asDerivedFilesUsing(exec(_, fromToCommand).stdout) orElse
+          e.proxyWritesWith(exec(_, toFromCommand).stdout)
+        )
+      ),
       to
     )
   }
@@ -91,6 +58,8 @@ abstract class FsRunner {
     def getName = name
 
     object reads {
+      import transformers.RemoveWrites
+
       def filterNot(p: Path => Boolean)            = new Rooted(fs filterNot p andThen RemoveWrites)
       def mapNode(f: Node =?> Node)                = new Rooted(fs mapNode f andThen RemoveWrites)
       def map(f: Metadata => Metadata)             = new Rooted(fs map f andThen RemoveWrites)

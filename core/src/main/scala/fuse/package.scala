@@ -5,8 +5,6 @@ import api._
 
 package object fuse {
 
-  implicit def emptyByteArray: Empty[Array[Byte]] = Empty(Array.empty[Byte])
-
   val  UTF8 = jio.UTF8
 
   def alreadyExists()  = -EEXIST

@@ -19,17 +19,13 @@ object Filesystem {
     def transform(transformer: Action ~> Action) = new TransformedFilesystem(transformer)
 
     def map(f: Metadata => Metadata) =
-      this transform new Transformer {
-        def transform[A] = { case action: Resolve => Transformation.Map(action, f) }
-      }
+      this transform transformers.map(f)
 
     def mapNode(f: Node =?> Node) =
       map(_.only[Node] mapOnly f)
 
     def filter(p: Path => Boolean) =
-      this transform new Transformer {
-        def transform[A] = { case action: Resolve => Transformation.FilterPath(action, p) }
-      }
+      this transform transformers.filter(p)
 
     def filterNot(p: Path => Boolean) = filter(x => !p(x))
   }
@@ -96,15 +92,4 @@ trait ConcreteActionsOnly { _: Filesystem =>
       case FlatMap(a, f)        => apply(apply(a) |> f)
       case a: Transformation[A] => apply(a.defaultResult)
     }
-}
-
-trait Transformer extends (Action ~> Action) {
-  def apply[A](action: Action[A]): Action[A] = if (transform isDefinedAt action) transform(action) else action
-  def transform[A]: Action[A] =?> Action[A]
-}
-
-object RemoveWrites extends Transformer {
-  def transform[A] = {
-    case action: Resolve => action map (_.only[UnixPerms] map (_.noWrites))
-  }
 }
