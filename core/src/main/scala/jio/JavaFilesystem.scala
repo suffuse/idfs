@@ -3,12 +3,12 @@ package jio
 
 import api._, api.attributes._
 
-class JavaFilesystem(root: jio.Path) extends Filesystem with FsActionsOnly {
+class JavaFilesystem(root: jio.Path) extends Filesystem with ConcreteActionsOnly {
 
   private def resolvePath(path: Path): Path =
     root append path
 
-  def handleFsAction[A](action: FsAction[A]): A =
+  def handleConcreteAction[A](action: ConcreteAction[A]): A =
     try {
       action mapPath resolvePath match {
 
@@ -52,7 +52,7 @@ class JavaFilesystem(root: jio.Path) extends Filesystem with FsActionsOnly {
       }
    } catch { case t: Throwable =>
      bug(t)
-     action.empty
+     action.emptyResult
    }
 
   private def asUnit[A](a: A): Unit = {}

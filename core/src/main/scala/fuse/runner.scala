@@ -12,7 +12,7 @@ object idfs extends FsRunner {
 object filterfs extends FsRunner {
   override def usage = "<from> <to> <regex>"
   def runMain = { case Array(from, to, regex) =>
-    start(new Rooted(from).reads filterNot (_ matches regex), to)
+    start(new Rooted(from).reads filterNot (_.toString matches regex), to)
   }
 }
 object reversefs extends FsRunner {
@@ -52,7 +52,8 @@ object mapfs extends FsRunner {
                 case name if name.extension == fromExt =>
                   name replaceExtension toExt
               }
-              case x => x // some compiler bug has a problem with `mapOnly`
+              case x => x // some compiler bug has a problem with `mapOnly` on metadata
+                          // it doesn't like the `PartialFunction` in there
             })
 
           case Write(path, data) if path.extension == toExt =>
@@ -90,10 +91,10 @@ abstract class FsRunner {
     def getName = name
 
     object reads {
-      def filterNot(p: String => Boolean)          = new Rooted(fs.reads filterNot p)
-      def mapNode(f: Node =?> Node)                = new Rooted(fs.reads mapNode f)
-      def map(f: Metadata => Metadata)             = new Rooted(fs.reads map f)
-      def transform(transformer: Action ~> Action) = new Rooted(fs.reads transform transformer)
+      def filterNot(p: Path => Boolean)            = new Rooted(fs filterNot p andThen RemoveWrites)
+      def mapNode(f: Node =?> Node)                = new Rooted(fs mapNode f andThen RemoveWrites)
+      def map(f: Metadata => Metadata)             = new Rooted(fs map f andThen RemoveWrites)
+      def transform(transformer: Action ~> Action) = new Rooted(fs transform transformer andThen RemoveWrites)
     }
 
     def transform(transformer: Action ~> Action) = new Rooted(fs transform transformer)
