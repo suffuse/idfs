@@ -109,4 +109,5 @@ class JioFilesInstance(path: Path) {
   def setPosixFilePermissions(perms: jFilePermissions): Path                = F.setPosixFilePermissions(path, perms)
   def size(): Long                                                          = F.size(path)
   def walkFileTree(visitor: FileVisitor[_ >: Path]): Path                   = F.walkFileTree(path, visitor)
+  def withDirStream[A](code: jStream[Path] => A): A                         = F.list(path) |> (str => try code(str) finally str.close())
 }

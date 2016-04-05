@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import api._, attributes._
+import api._, fs._, attributes._
 import scala.language.existentials
 
 abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {

@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import api._, jio._, attributes._
+import api._, fs._, attributes._
 
 object idfs extends FsRunner {
   override def usage = "<from> <to>"
@@ -12,16 +12,14 @@ object idfs extends FsRunner {
 object filterfs extends FsRunner {
   override def usage = "<from> <to> <regex>"
   def runMain = { case Array(from, to, regex) =>
-    start(new Rooted(from).reads filterNot (_.toString matches regex), to)
+    start(new Rooted(from).reads filterNot (RegexPredicate(regex)), to)
   }
 }
 object reversefs extends FsRunner {
   override def usage = "<from> <to>"
   def runMain = { case Array(from, to) =>
     start(
-      new Rooted(from).reads mapNode {
-        case File(data) => File(data.get.reverse)
-      },
+      new Rooted(from).reads map DataMap(_.reverse),
       to
     )
   }
@@ -60,9 +58,8 @@ abstract class FsRunner {
     object reads {
       import transformers.RemoveWrites
 
-      def filterNot(p: Path => Boolean)            = new Rooted(fs filterNot p andThen RemoveWrites)
-      def mapNode(f: Node =?> Node)                = new Rooted(fs mapNode f andThen RemoveWrites)
-      def map(f: Metadata => Metadata)             = new Rooted(fs map f andThen RemoveWrites)
+      def filterNot(p: Predicate[Path])            = new Rooted(fs filterNot p andThen RemoveWrites)
+      def map(f: Map[Metadata, Metadata])          = new Rooted(fs map f andThen RemoveWrites)
       def transform(transformer: Action ~> Action) = new Rooted(fs transform transformer andThen RemoveWrites)
     }
 

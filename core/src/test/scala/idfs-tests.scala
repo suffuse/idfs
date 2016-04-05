@@ -1,7 +1,7 @@
 package sfs
 package tests
 
-import fuse._, jio._
+import fuse._, api._, jio._
 import org.junit._, Assert._
 
 final class IdfsTests {

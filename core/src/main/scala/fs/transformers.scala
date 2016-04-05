@@ -1,7 +1,7 @@
 package sfs
-package api
+package fs
 
-import attributes._, jio._
+import api._, attributes._
 
 object transformers {
 
@@ -14,15 +14,16 @@ object transformers {
       }
   }
 
-  def map(f: Metadata => Metadata) = new Transformer {
-    def transform[A] = { case action: Resolve => Transformation.Map(action, f) }
+  def map(f: Map[Metadata, Metadata]) = new Transformer {
+    def transform[A] = { case action: Resolve => MapAction(action, f) }
   }
 
-  def filter(p: Path => Boolean) = new Transformer {
-    def transform[A] = { case action: Resolve => Transformation.FilterPath(action, p) }
+  def filter(p: Predicate[Path]) = new Transformer {
+    def transform[A] = { case action: Resolve => FilterPath(action, p) }
   }
 
   object RemoveWrites extends Transformer {
+    import `I don't feel like optimizing`.really
     def transform[A] = { case action: Resolve => action map (_.only[UnixPerms] map (_.noWrites)) }
   }
 
@@ -33,10 +34,10 @@ object transformers {
 
     def asDerivedFilesUsing(derive: Data => Data) = new Transformer {
 
-      // Note to self: I have had this add the derived file instead of replacing the
-      //               non derived file. My naive thought was that I could just use
-      //               a filter. That however proved difficult. Either it masked the
-      //               source file from this method, it was not executed, or it's
+      // Note to self: I have had this 'add the derived file' instead of 'replacing the
+      //               non derived file'. My naive thought was that I could just use
+      //               a filter afterwards. That however proved difficult. Either it masked
+      //               the source file from this method, it was not executed, or it's
       //               behavior was undone by this transformer.
       //
       // So, future self, how do you propose we handle this? Composability of file
@@ -44,26 +45,13 @@ object transformers {
 
       def transform[A] = {
         case Resolve(path) if path.extension == targetExt =>
-          for { metadata <- Resolve(path replaceExtension sourceExt) }
-          yield metadata[Node] match {
-            case File(data) =>
-              val newData = derive(data.get)
-              metadata set File(newData) set Size(newData.size)
-            case _ =>
-              metadata
-          }
+          MapAction(Resolve(path replaceExtension sourceExt), DataMap(derive))
 
         case Resolve(path) if path.extension == sourceExt =>
           InstantResult(empty[Metadata])
 
         case action: Resolve =>
-          action.map(_.only[Node] map {
-            case dir: Dir => dir mapOnly {
-              case name if name.extension == sourceExt => name replaceExtension targetExt
-            }
-            case x => x // some compiler bug has a problem with `mapOnly` on metadata
-                        // it doesn't like the `PartialFunction` in there
-          })
+          MapAction(action, DirMap(DirNamesMap(ExtensionMap(sourceExt, targetExt))))
       }
     }
 
@@ -72,16 +60,18 @@ object transformers {
       def transform[A] = {
 
         // this actually doesn't work for data that 'streams' in (which is most of the time)
+        // imagine a yaml file that is being fed in line by line
         case Write(path, data) if path.extension == targetExt =>
           Write(path replaceExtension sourceExt, translate(data))
 
         case Move(path, to) if to.extension == targetExt =>
+          import `I don't feel like optimizing`.really
           for {
             metadata <- Resolve(path)
             data     =  metadata[Node] match {
-                          case File(data) => data.get
-                          case _          => empty[Data]
-                        }
+              case File(data) => data.get
+              case _          => empty[Data]
+            }
             _        <- Write(path, translate(data))
             _        <- Move(path, to replaceExtension sourceExt)
           } yield ()

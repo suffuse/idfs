@@ -1,7 +1,7 @@
 package sfs
 package jio
 
-import api._, api.attributes._
+import api._, fs._, api.attributes._
 
 class JavaFilesystem(root: jio.Path) extends Filesystem with ConcreteActionsOnly {
 
