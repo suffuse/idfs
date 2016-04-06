@@ -1,6 +1,8 @@
 package sfs
 package api
 
+import scala.language.higherKinds
+
 trait Empty[+A] {
   def emptyValue: A
 }

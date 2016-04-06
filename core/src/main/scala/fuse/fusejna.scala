@@ -2,13 +2,10 @@ package sfs
 package fuse
 
 import api._, fs._, attributes._
-import scala.language.existentials
 
-abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
+abstract class RootedFs extends FuseFs {
 
   def fs: Filesystem
-
-  def logging(): this.type = doto[this.type](this)(_ log true)
 
   def getattr(path: String, stat: StatInfo): Int =
     resolve(path) |> { metadata =>
@@ -148,29 +145,14 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
       case Nlink(count)       => stat nlink  count
     }
 
-  private def resolve(path: String) =
-    fs apply Resolve(toPath(path))
-
-  private def remove(path: String) =
-    fs apply Remove(toPath(path))
-
-  private def write(path: String, data: => Array[Byte]) =
-    fs apply Write(toPath(path), data)
-
-  private def createFile(path: String, perms: UnixPerms) =
-    fs apply CreateFile(toPath(path), perms)
-
-  private def createDir(path: String, perms: UnixPerms) =
-    fs apply CreateDir(toPath(path), perms)
-
-  private def createLink(path: String, target: String) =
-    fs apply CreateLink(toPath(path), target)
-
-  private def update(path: String, attributes: Attribute *) =
-    fs apply Update(toPath(path), Metadata(attributes: _*))
-
-  private def move(from: String, to: String) =
-    fs apply Move(toPath(from), toPath(to))
+  private def resolve(path: String)                         = fs apply Resolve(toPath(path))
+  private def remove(path: String)                          = fs apply Remove(toPath(path))
+  private def write(path: String, data: => Array[Byte])     = fs apply Write(toPath(path), data)
+  private def createFile(path: String, perms: UnixPerms)    = fs apply CreateFile(toPath(path), perms)
+  private def createDir(path: String, perms: UnixPerms)     = fs apply CreateDir (toPath(path), perms)
+  private def createLink(path: String, target: String)      = fs apply CreateLink(toPath(path), target)
+  private def update(path: String, attributes: Attribute *) = fs apply Update(toPath(path), Metadata(attributes: _*))
+  private def move(from: String, to: String)                = fs apply Move(toPath(from), toPath(to))
 
   private implicit class NodeOps(val node: Node) {
     def asFuseBits = node match {
@@ -278,10 +260,10 @@ abstract class RootedFs extends net.fusejna.FuseFilesystem with FuseFs {
 }
 
 
-/** Widening access so we don't have to use inheritance everywhere.
- */
+abstract class FuseFs extends FuseFilesystem {
+  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = false)
+  def mountForeground(mountPoint: Path): this.type = doMount(mountPoint, blocking = true)
 
-trait FuseFs extends FuseFilesystem {
   def unmountTry(): Unit = (
     if (!isMounted)
       return
@@ -290,18 +272,16 @@ trait FuseFs extends FuseFilesystem {
     else
       exec("fusermount", "-u", getMountPoint.getPath)
   )
+
+  def options: Vector[String] = fuse.defaultOptions
+
+  def logging(): this.type = doto[this.type](this)(_ log true)
+
+  protected def getOptions(): Array[String] = options.toArray
+
   private def doMount(mountPoint: Path, blocking: Boolean): this.type = {
-    addUnmountHook(this)
+    addShutdownHook(if (isMounted) unmountTry())
     super.mount(mountPoint.toFile, blocking)
     this
   }
-
-  def fillDir(df: DirectoryFiller)(xs: Traversable[Any]): Unit = xs foreach (df add "" + _)
-
-  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = false)
-  def mountForeground(mountPoint: Path): this.type = doMount(mountPoint, blocking = true)
-
-  def getOptions(): Array[String] = options.toArray
-
-  def options: Vector[String] = fuse.defaultOptions
 }

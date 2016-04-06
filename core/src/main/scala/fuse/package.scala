@@ -7,10 +7,11 @@ package object fuse {
 
   val  UTF8 = jio.UTF8
 
+  def isMac            = scala.util.Properties.isMac
+
   def alreadyExists()  = -EEXIST
   def doesNotExist()   = -ENOENT
   def eok()            = 0
-  def isMac            = scala.util.Properties.isMac
   def isNotValid()     = -EINVAL
   def notImplemented() = -ENOSYS
   def notSupported()   = notImplemented()
@@ -18,8 +19,8 @@ package object fuse {
   def notEmpty()       = -ENOTEMPTY
   def tooBig()         = -EFBIG
 
-  def addUnmountHook(fs: FuseFs): Unit =
-    scala.sys addShutdownHook ( if (fs.isMounted) fs.unmountTry() )
+  def addShutdownHook(hook: => Unit): Unit =
+    scala.sys addShutdownHook hook
 
   // see also: "allow_recursion", "nolocalcaches", "auto_xattr", "sparse"
   def defaultOptions: Vector[String] = isMac match {
