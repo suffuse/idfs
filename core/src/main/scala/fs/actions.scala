@@ -2,22 +2,24 @@ package sfs
 package fs
 
 import api._, attributes._
-import scala.util.matching.Regex
 
-// just a marker we can use to optimize stuff
-sealed trait `Are you sure?`
-object `I don't feel like optimizing` {
-  implicit val really: `Are you sure?` = null
+sealed trait Action[A]
+object Action {
+  implicit class ActionOps[A](val action: Action[A]) extends AnyVal {
+    def map[B](m: Map[A, B]): Action[B] = MapAction(action, m)
+  }
 }
 
-sealed trait Action[A] {
-  def flatMap[B](f: A => Action[B])(implicit z: `Are you sure?`): Action[B] = FlatMapAction(this, f)
-  def map[B](f: A => B)(implicit z: `Are you sure?`): Action[B]             = MapAction(this, NotOptimized(f))
+object syntax {
+  implicit class ForComprehensionSuport[A](val action: Action[A]) extends AnyVal {
+    def flatMap[B](f: A => Action[B]): Action[B] = FlatMapAction(action, NotOptimized(f))
+    def map[B](f: A => B): Action[B]             = MapAction(action, NotOptimized(f))
+  }
 }
 
-case class InstantResult[A](a: A)                                    extends Action[A]
-case class MapAction[A, B](action: Action[A], f: Map[A, B])          extends Action[B]
-case class FlatMapAction[A, B](action: Action[A], f: A => Action[B]) extends Action[B]
+case class InstantResult[A](a: A)                                       extends Action[A]
+case class MapAction[A, B](action: Action[A], f: Map[A, B])             extends Action[B]
+case class FlatMapAction[A, B](action: Action[A], f: Map[A, Action[B]]) extends Action[B]
 
 // Allows an implementing file system to decompose the requested transformation and supply
 // a more efficient implementation. A filter could, for example, be transformed into a
@@ -55,6 +57,6 @@ case class Remove    (path: Path)                         extends ConcreteAction
 
 case class FilterPath(action: PathAction[Metadata], predicate: Predicate[Path]) extends PathActionTransformation[Metadata] {
   def defaultResult =
-    if (predicate(path)) MapAction(action, DirMap(DirFilter(path, predicate)))
+    if (predicate(path)) action map filterDir(path, predicate)
     else InstantResult(empty[Metadata])
 }

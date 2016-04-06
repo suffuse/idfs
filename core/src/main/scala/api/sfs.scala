@@ -36,8 +36,8 @@ trait ConcreteActionsOnly { _: Filesystem =>
     action match {
       case a: ConcreteAction[A] => handleConcreteAction(a)
       case InstantResult(a)     => a
-      case FlatMapAction(a, f)  => apply(apply(a) |> f)
-      case MapAction(a, f)      => apply(a) |> f
+      case FlatMapAction(a, m)  => apply(apply(a) |> m.asFunction)
+      case     MapAction(a, m)  =>       apply(a) |> m.asFunction
       case a: Transformation[A] => apply(a.defaultResult)
     }
 }

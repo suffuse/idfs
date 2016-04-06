@@ -6,16 +6,19 @@ import api._, attributes._
 object transformers {
 
   trait Transformer extends (Action ~> Action) { self =>
-    def apply[A](action: Action[A]): Action[A] = if (transform isDefinedAt action) transform(action) else action
+
     def transform[A]: Action[A] =?> Action[A]
+
+    def apply[A](action: Action[A]): Action[A] = if (transform isDefinedAt action) transform(action) else action
+
     def orElse(other: Transformer): Transformer =
       new Transformer {
         def transform[A] = self.transform[A] orElse other.transform[A]
       }
   }
 
-  def map(f: Map[Metadata, Metadata]) = new Transformer {
-    def transform[A] = { case action: Resolve => MapAction(action, f) }
+  def map(m: Map[Metadata, Metadata]) = new Transformer {
+    def transform[A] = { case action: Resolve => action map m }
   }
 
   def filter(p: Predicate[Path]) = new Transformer {
@@ -23,8 +26,7 @@ object transformers {
   }
 
   object RemoveWrites extends Transformer {
-    import `I don't feel like optimizing`.really
-    def transform[A] = { case action: Resolve => action map (_.only[UnixPerms] map (_.noWrites)) }
+    def transform[A] = { case action: Resolve => action map NoWrites }
   }
 
   class WithExtensionPair(
@@ -45,13 +47,13 @@ object transformers {
 
       def transform[A] = {
         case Resolve(path) if path.extension == targetExt =>
-          MapAction(Resolve(path replaceExtension sourceExt), DataMap(derive))
+          Resolve(path replaceExtension sourceExt) map dataOfFiles(using = derive)
 
         case Resolve(path) if path.extension == sourceExt =>
           InstantResult(empty[Metadata])
 
         case action: Resolve =>
-          MapAction(action, DirMap(DirNamesMap(ExtensionMap(sourceExt, targetExt))))
+          action map extensionsInDir(from = sourceExt, to = targetExt)
       }
     }
 
@@ -61,11 +63,13 @@ object transformers {
 
         // this actually doesn't work for data that 'streams' in (which is most of the time)
         // imagine a yaml file that is being fed in line by line
+        // not of concern for today, eventually we need to tap into the `open` method of of
+        // fuse and be able to buffer stuff before sending it through to the actual filesystem
         case Write(path, data) if path.extension == targetExt =>
           Write(path replaceExtension sourceExt, translate(data))
 
         case Move(path, to) if to.extension == targetExt =>
-          import `I don't feel like optimizing`.really
+          import syntax._
           for {
             metadata <- Resolve(path)
             data     =  metadata[Node] match {
