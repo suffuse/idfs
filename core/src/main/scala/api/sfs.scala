@@ -11,12 +11,8 @@ object Filesystem {
 
   implicit class FilesystemOps(fs: Filesystem) {
 
-    class TransformedFilesystem(transformer: Action ~> Action) extends Filesystem {
-      def apply[A](action: Action[A]): A = fs apply transformer(action)
-      def andThen(next: Action ~> Action) = new TransformedFilesystem(transformer andThen next)
-    }
-
-    def transform(transformer: Action ~> Action) = new TransformedFilesystem(transformer)
+    def transform(transformer: Action ~> Action) =
+      new TransformedFilesystem(fs, transformer)
 
     def map(f: Map[Metadata, Metadata]) =
       this transform transformers.map(f)
@@ -24,8 +20,14 @@ object Filesystem {
     def filter(p: Predicate[Path]) =
       this transform transformers.filter(p)
 
-    def filterNot(p: Predicate[Path]) = filter(Not(p))
+    def filterNot(p: Predicate[Path]) =
+      filter(Not(p))
   }
+}
+
+class TransformedFilesystem(fs: Filesystem, transformer: Action ~> Action) extends Filesystem {
+  def apply[A](action: Action[A]): A  = fs apply transformer(action)
+  def andThen(next: Action ~> Action) = new TransformedFilesystem(fs, transformer andThen next)
 }
 
 trait ConcreteActionsOnly { _: Filesystem =>
@@ -35,9 +37,9 @@ trait ConcreteActionsOnly { _: Filesystem =>
   def apply[A](action: Action[A]): A =
     action match {
       case a: ConcreteAction[A] => handleConcreteAction(a)
+      case a: Transformation[A] => apply(a.defaultResult)
       case InstantResult(a)     => a
       case FlatMapAction(a, m)  => apply(apply(a) |> m.asFunction)
       case     MapAction(a, m)  =>       apply(a) |> m.asFunction
-      case a: Transformation[A] => apply(a.defaultResult)
     }
 }

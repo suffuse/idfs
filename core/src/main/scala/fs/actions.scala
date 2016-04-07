@@ -57,6 +57,6 @@ case class Remove    (path: Path)                         extends ConcreteAction
 
 case class FilterPath(action: PathAction[Metadata], predicate: Predicate[Path]) extends PathActionTransformation[Metadata] {
   def defaultResult =
-    if (predicate(path)) action map filterDir(path, predicate)
+    if (predicate.asFunction(path)) action map filterDir(path, predicate)
     else InstantResult(empty[Metadata])
 }

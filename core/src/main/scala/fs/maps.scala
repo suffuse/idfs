@@ -35,7 +35,7 @@ case class ExtensionMap(from: String, to: String) extends Map[Name, Name] {
 
 sealed trait DirFunction extends (Dir => Dir)
 case class DirFilter(path: Path, predicate: Predicate[Path]) extends DirFunction {
-  def apply(dir: Dir) = dir filter (name => predicate(path / name))
+  def apply(dir: Dir) = dir filter (name => predicate asFunction (path / name))
 }
 case class DirNamesMap(m: Map[Name, Name]) extends DirFunction {
   def apply(dir: Dir) = dir map m.asFunction

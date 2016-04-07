@@ -44,6 +44,9 @@ object transformers {
       //
       // So, future self, how do you propose we handle this? Composability of file
       // system transformations is very important...
+      //
+      // I am not sure if we need to do anything. It seems not very problematic to
+      // create the few lines below in another transformer with different behavior.
 
       def transform[A] = {
         case Resolve(path) if path.extension == targetExt =>
