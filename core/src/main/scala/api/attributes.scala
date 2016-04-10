@@ -1,13 +1,10 @@
 package sfs
 package api
 
+import scala.reflect.ClassTag
+
 object attributes {
   // underscore on implicits to prevent shadowing
-
-  abstract class FileTimeBased[This](create: FileTime => This) {
-    def timestamp: FileTime
-    def +(amount: Duration): This = create(timestamp + amount)
-  }
 
   final case class UnixPerms(mask: Long) {
     override def toString = UnixPerms permString mask
@@ -42,22 +39,16 @@ object attributes {
   }
   implicit val _unixPerms = new Key[UnixPerms]("unix permissions")
 
-  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](x => Mtime(x)) {
-    override def hashCode = timestamp.toMillis.##
-    override def equals(that: Any) = that match {
-      case Mtime(other) => timestamp.toMillis == other.toMillis
-      case _            => super.equals(that)
-    }
-  }
+  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](Mtime)
   implicit val _mtime = new api.Key[Mtime]("modification time")
 
-  final case class Atime(timestamp: FileTime)
+  final case class Atime(timestamp: FileTime) extends FileTimeBased[Atime](Atime)
   implicit val _atime = new api.Key[Atime]("access time")
 
-  final case class Ctime(timestamp: FileTime)
+  final case class Ctime(timestamp: FileTime) extends FileTimeBased[Ctime](Ctime)
   implicit val _ctime = new api.Key[Ctime]("node or file change time")
 
-  final case class Birth(timestamp: FileTime)
+  final case class Birth(timestamp: FileTime) extends FileTimeBased[Birth](Birth)
   implicit val _birth = new api.Key[Birth]("creation time")
 
   final case class Size(bytes: Long)
@@ -75,4 +66,16 @@ object attributes {
   final case class Nlink(count: Int)
   implicit val _nlink = new api.Key[Nlink]("number of links")
 
+  abstract class FileTimeBased[This <: FileTimeBased[This] : ClassTag](val create: FileTime => This) {
+    _: This  => // helps to prevent us from making copy-paste mistakes
+
+    def timestamp: FileTime
+    def +(amount: Duration): This = create(timestamp + amount)
+
+    override def hashCode = timestamp.toMillis.##
+    override def equals(that: Any) = that match {
+      case other: This  => timestamp.toMillis == other.timestamp.toMillis
+      case _            => super.equals(that)
+    }
+  }
 }
