@@ -1,7 +1,7 @@
 package sfs
 package fs
 
-import api._, attributes._
+import api._, attributes._, json._
 
 object transformers {
 
@@ -84,5 +84,21 @@ object transformers {
           } yield ()
       }
     }
+  }
+
+  class JsonMetadataTransformer(transformer: Data => Data) extends Transformer {
+    import syntax._
+    def transform[A] = { case action: Resolve => action map usingJson }
+
+    private def usingJson: Metadata => Metadata = {
+      import format.metadata
+      toData andThen transformer andThen fromData
+    }
+
+    private def toData[A: Writes]: A => Data =
+      a => Json stringify (Json toJson a) getBytes UTF8
+
+    private def fromData[A: Reads: Empty]: Data => A =
+      data => Json fromJson[A] (Json parse data) getOrElse empty[A]
   }
 }

@@ -40,6 +40,44 @@ object mapfs extends FsRunner {
     )
   }
 }
+/*
+**test.js**
+```
+process.stdin.setEncoding('utf8');
+
+var chunks = ''
+process.stdin.on('readable', function() {
+  var chunk = process.stdin.read();
+  if (chunk !== null) {
+    chunks += chunk
+  }
+});
+
+process.stdin.on('end', function() {
+  //process.stderr.write(chunks);
+  process.stdout.write(chunks);
+  chunks = ''
+});
+```
+
+`sbt 'runMain sfs.fuse.jsonfs /home/eecolor/test-src /home/eecolor/test-mnt nodejs /home/eecolor/eecolor/sfs/test.js'`
+ */
+object jsonfs extends FsRunner {
+  override def usage = "<from> <to> <json-transformer-command>\n" +
+                       " example: /source /mnt mapJsonMetadataCommand"
+  def runMain = { case Array(from, to, command @ _*) =>
+    start(
+      new Rooted(from) transform new transformers.JsonMetadataTransformer(
+        exec(_, command: _*) |> { result =>
+          val stderr = result.stderr
+          if (stderr.nonEmpty) println(new String(stderr, UTF8))
+          result.stdout
+        }
+      ),
+      to
+    )
+  }
+}
 
 /** Generic SFS runner.
  */

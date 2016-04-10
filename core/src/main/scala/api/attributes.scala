@@ -11,7 +11,7 @@ object attributes {
     def noWrites: UnixPerms =
       UnixPerms(mask & (UnixPerms toMask "r-xr-xr-x"))
   }
-  object UnixPerms {
+  object UnixPerms extends (Long => UnixPerms) {
 
     def apply(perms: String): UnixPerms = UnixPerms(toMask(perms))
 

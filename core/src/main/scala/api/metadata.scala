@@ -136,6 +136,7 @@ package object metadata {
 
     def mapOnly(pf: Attribute =?> Attribute): Metadata = map(x => if (pf isDefinedAt x) pf(x) else x)
     def map(f: Attribute => Attribute): Metadata       = transformAttributes(_ map f)
+    def foldLeft[A](z: A)(f: (A, Attribute) => A): A   = attributes.foldLeft(z)(f)
     def flatMap(f: Attribute => Metadata): Metadata    = transformAttributes(_ flatMap (x => f(x).attributes))
     def filter(p: Attribute => Boolean): Metadata      = transformAttributes(_ filter p)
 

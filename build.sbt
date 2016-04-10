@@ -16,7 +16,10 @@ lazy val core = project dependsOn `fuse-jna` settings common
 def common = Seq[Setting[_]](
                 organization :=  "org.improving",
     scalacOptions in compile ++= Seq("-Ywarn-unused", "-Ywarn-unused-import"),
-         libraryDependencies +=  "com.novocode" % "junit-interface" % "0.11" % "test",
+         libraryDependencies ++= Seq(
+                                   "com.novocode" % "junit-interface" % "0.11" % "test",
+                                   "com.typesafe.play" %% "play-json" % "2.5.1"
+                                 ),
                     licenses :=  Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
                 scalaVersion :=  "2.11.8",
                  logBuffered :=  false,
