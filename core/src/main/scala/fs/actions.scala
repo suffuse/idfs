@@ -17,7 +17,7 @@ object syntax {
   }
 }
 
-case class InstantResult[A](a: A)                                       extends Action[A]
+case class InstantResult[A](result: A)                                  extends Action[A]
 case class MapAction[A, B](action: Action[A], f: Map[A, B])             extends Action[B]
 case class FlatMapAction[A, B](action: Action[A], f: Map[A, Action[B]]) extends Action[B]
 
