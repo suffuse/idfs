@@ -26,6 +26,7 @@ trait Api {
   implicit val _emptyMetadata: Empty[Metadata] = Empty(Metadata.empty)
   implicit val _emptyUnit    : Empty[Unit]     = Empty({})
 
+  val UTF8 = jio.UTF8
   def unit = ()
   def toPath: String => Path = jio.path
 

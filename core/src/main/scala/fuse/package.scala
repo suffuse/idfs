@@ -5,8 +5,6 @@ import api._
 
 package object fuse {
 
-  val  UTF8 = jio.UTF8
-
   def isMac            = scala.util.Properties.isMac
 
   def alreadyExists()  = -EEXIST
