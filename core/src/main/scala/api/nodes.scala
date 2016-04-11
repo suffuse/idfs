@@ -25,6 +25,9 @@ final case class  Dir (kids: Set[Name])    extends Node {
 
   def mapOnly(f: Name =?> Name): Dir =
     map(x => if (f isDefinedAt x) f(x) else x)
+
+  def ++ (other: Dir): Dir =
+    Dir(kids ++ other.kids)
 }
 
 object File extends (Lazy[Data] => File) {

@@ -7,19 +7,24 @@ sealed trait Action[A]
 object Action {
   implicit class ActionOps[A](val action: Action[A]) extends AnyVal {
     def map[B](m: Map[A, B]): Action[B] = MapAction(action, m)
+    def zip[B](b: Action[B]): Action[(A, B)] = Zipped(action, b)
+
+    def execute[B](executor: Map[Action[A], B]): Action[B] = Execution(action, executor)
   }
 }
 
 object syntax {
   implicit class ForComprehensionSuport[A](val action: Action[A]) extends AnyVal {
-    def flatMap[B](f: A => Action[B]): Action[B] = FlatMapAction(action, NotOptimized(f))
-    def map[B](f: A => B): Action[B]             = MapAction(action, NotOptimized(f))
+    def flatMap[B](f: A => Action[B]): Action[B]  = FlatMapAction(action, NotOptimized(f))
+    def map[B](f: A => B): Action[B]              = MapAction(action, NotOptimized(f))
   }
 }
 
 case class InstantResult[A](result: A)                                  extends Action[A]
 case class MapAction[A, B](action: Action[A], f: Map[A, B])             extends Action[B]
 case class FlatMapAction[A, B](action: Action[A], f: Map[A, Action[B]]) extends Action[B]
+case class Execution[A, B](action: Action[A], f: Map[Action[A], B])     extends Action[B]
+case class Zipped[A, B](a: Action[A], b: Action[B])                     extends Action[(A, B)]
 
 // Allows an implementing file system to decompose the requested transformation and supply
 // a more efficient implementation. A filter could, for example, be transformed into a
@@ -54,6 +59,14 @@ case class Update    (path: Path, metadata: Metadata)     extends ConcreteAction
 case class Move      (path: Path, to: Path)               extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
 case class Write     (path: Path, data: Data)             extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
 case class Remove    (path: Path)                         extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
+
+case class IfEmpty(action: Resolve, backup: Map[Resolve, Metadata]) extends Transformation[Metadata] {
+  def defaultResult =
+    action map NotOptimized {
+      case b if b == action.emptyResult => backup.asFunction apply action
+      case b => b
+    }
+}
 
 case class FilterPath(action: PathAction[Metadata], predicate: Predicate[Path]) extends PathActionTransformation[Metadata] {
   def defaultResult =

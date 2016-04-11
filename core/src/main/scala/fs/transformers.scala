@@ -25,6 +25,17 @@ object transformers {
     def transform[A] = { case action: Resolve => FilterPath(action, p) }
   }
 
+  def concat(other: Filesystem) = new Transformer {
+    def transform[A] = {
+      case a @ Resolve(Root) =>
+        val dirA = a execute (FsMap(other) andThen GetDir)
+        val dirB = a map GetDir
+
+        a zip (dirA zip dirB map DirConcat) map SetDir
+      case a: Resolve => IfEmpty(a, FsMap[A](other))
+    }
+  }
+
   object RemoveWrites extends Transformer {
     def transform[A] = { case action: Resolve => action map NoWrites }
   }

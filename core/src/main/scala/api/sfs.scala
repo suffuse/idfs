@@ -9,19 +9,27 @@ trait Filesystem {
 
 object Filesystem {
 
-  implicit class FilesystemOps(fs: Filesystem) {
+  implicit class FilesystemOps(fs: Filesystem) { ops =>
 
     def transform(transformer: Action ~> Action) =
       new TransformedFilesystem(fs, transformer)
 
-    def map(f: Map[Metadata, Metadata]) =
-      this transform transformers.map(f)
+    object reads extends TransformedFilesystem(fs, transformers.RemoveWrites) {
+      def transform(transformer: Action ~> Action) =
+        ops transform transformer andThen transformers.RemoveWrites
 
-    def filter(p: Predicate[Path]) =
-      this transform transformers.filter(p)
+      def map(f: Map[Metadata, Metadata]) =
+        this transform transformers.map(f)
 
-    def filterNot(p: Predicate[Path]) =
-      filter(Not(p))
+      def filter(p: Predicate[Path]) =
+        this transform transformers.filter(p)
+
+      def filterNot(p: Predicate[Path]) =
+        filter(Not(p))
+
+      def concat(other: Filesystem) =
+        this transform transformers.concat(other)
+    }
   }
 }
 
@@ -41,5 +49,7 @@ trait ConcreteActionsOnly { _: Filesystem =>
       case InstantResult(a)     => a
       case FlatMapAction(a, m)  => apply(apply(a) |> m.asFunction)
       case     MapAction(a, m)  =>       apply(a) |> m.asFunction
+      case     Execution(a, m)  => m.asFunction apply a
+      case        Zipped(a, b)  => (apply(a), apply(b))
     }
 }
