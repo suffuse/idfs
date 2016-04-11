@@ -3,9 +3,16 @@ package fuse
 
 import api._, fs._, attributes._
 
-abstract class RootedFs extends FuseFs {
+class FuseImplementation(
+  val fs  : Filesystem,
+  name    : String,
+  options : Vector[String] = fuse.defaultOptions
+) extends FuseFilesystem {
 
-  def fs: Filesystem
+  protected def getName    = name
+  protected def getOptions = options.toArray
+
+  def logging(): this.type = doto[this.type](this)(_ log true)
 
   def getattr(path: String, stat: StatInfo): Int =
     resolve(path) |> { metadata =>
@@ -259,29 +266,30 @@ abstract class RootedFs extends FuseFs {
   def setxattr(path: String, xattr: String, buf: ByteBuffer, size: Long, flags: Int, position: Int): Int = notImplemented
 }
 
+class FuseFs(fs: Filesystem, name: String, logging: Boolean) {
+  private val fuse = {
+    val fuse = new FuseImplementation(fs, name)
+    if (logging) fuse.logging else fuse
+  }
 
-abstract class FuseFs extends FuseFilesystem {
-  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = false)
-  def mountForeground(mountPoint: Path): this.type = doMount(mountPoint, blocking = true)
+  def mountBackground(mountPoint: Path): this.type = doMount(mountPoint, blocking = false)
+  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = true)
+  def mount(mountPoint: String): this.type         = mount(toPath(mountPoint))
 
   def unmountTry(): Unit = (
-    if (!isMounted)
+    if (!fuse.isMounted)
       return
     else if (isMac)
-      exec("umount", "-f", getMountPoint.getPath) orElse exec("diskutil", "unmount", getMountPoint.getPath)
+      exec("umount", "-f", mountPoint) orElse exec("diskutil", "unmount", mountPoint)
     else
-      exec("fusermount", "-u", getMountPoint.getPath)
+      exec("fusermount", "-u", mountPoint)
   )
 
-  def options: Vector[String] = fuse.defaultOptions
-
-  def logging(): this.type = doto[this.type](this)(_ log true)
-
-  protected def getOptions(): Array[String] = options.toArray
+  private def mountPoint = fuse.getMountPoint.getPath
 
   private def doMount(mountPoint: Path, blocking: Boolean): this.type = {
-    addShutdownHook(if (isMounted) unmountTry())
-    super.mount(mountPoint.toFile, blocking)
+    addShutdownHook(if (fuse.isMounted) unmountTry())
+    fuse.mount(mountPoint.toFile, blocking)
     this
   }
 }
