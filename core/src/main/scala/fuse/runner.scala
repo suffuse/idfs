@@ -12,13 +12,13 @@ object idfs extends FsRunner {
 object filterfs extends FsRunner {
   def usage   = "<from> <to> <regex>"
   def runMain = { case Array(from, to, regex) =>
-    new Rooted(from).reads filterNot (RegexPredicate(regex)) mount to
+    new Rooted(from).reads filterNot (_.to_s matches regex) mount to
   }
 }
 object reversefs extends FsRunner {
   def usage   = "<from> <to>"
   def runMain = { case Array(from, to) =>
-    new Rooted(from).reads map DataMap(_.reverse) mount to
+    new Rooted(from).reads map (_ mapDataOfFiles (_.reverse)) mount to
   }
 }
 object mapfs extends FsRunner {
@@ -64,9 +64,9 @@ abstract class FsRunner {
     object reads {
       import transformers.RemoveWrites
 
-      def filterNot(p: Predicate[Path])    = copy(fs = fs.reads filterNot p andThen RemoveWrites)
-      def map(f: Map[Metadata, Metadata])  = copy(fs = fs.reads map f)
-      def concat(other: Filesystem)        = copy(fs = fs.reads concat other)
+      def filterNot(p: Path => Boolean)                = copy(fs = fs.reads filterNot p andThen RemoveWrites)
+      def map(f: Action[Metadata] => Action[Metadata]) = copy(fs = fs.reads map f)
+      def concat(other: Filesystem)                    = copy(fs = fs.reads concat other)
     }
 
     def transform(transformer: Action ~> Action) = copy(fs = fs transform transformer)

@@ -17,27 +17,38 @@ object transformers {
       }
   }
 
-  def map(m: Map[Metadata, Metadata]) = new Transformer {
-    def transform[A] = { case action: Resolve => action map m }
+  def map(m: Action[Metadata] => Action[Metadata]) = new Transformer {
+    def transform[A] = { case action: Resolve => m(action) }
   }
 
-  def filter(p: Predicate[Path]) = new Transformer {
-    def transform[A] = { case action: Resolve => FilterPath(action, p) }
+  def filter(p: Path => Boolean) = new Transformer {
+    def transform[A] = {
+      case action @ Resolve(path) if p(path) => action filterDir (path, p)
+      case action: ConcreteAction[A]         => InstantResult(action.emptyResult)
+    }
   }
 
   def concat(other: Filesystem) = new Transformer {
     def transform[A] = {
-      case a @ Resolve(Root) =>
-        val dirA = a execute (FsMap(other) andThen GetDir)
-        val dirB = a map GetDir
+      case action @ Resolve(Root) =>
+        val dir =
+          other(action)[Node] match {
+            case dir: Dir => dir
+            case _        => empty[Dir]
+          }
 
-        a zip (dirA zip dirB map DirConcat) map SetDir
-      case a: Resolve => IfEmpty(a, FsMap[A](other))
+        action mapDir (_ ++ dir)
+
+      case action: Resolve =>
+        action map {
+          case m if m == action.emptyResult => other(action)
+          case m => m
+        }
     }
   }
 
   object RemoveWrites extends Transformer {
-    def transform[A] = { case action: Resolve => action map NoWrites }
+    def transform[A] = { case action: Resolve => action.noWrites }
   }
 
   class WithExtensionPair(
@@ -61,13 +72,13 @@ object transformers {
 
       def transform[A] = {
         case Resolve(path) if path.extension == targetExt =>
-          Resolve(path replaceExtension sourceExt) map dataOfFiles(using = derive)
+          Resolve(path replaceExtension sourceExt) mapDataOfFiles (using = derive)
 
         case Resolve(path) if path.extension == sourceExt =>
           InstantResult(empty[Metadata])
 
         case action: Resolve =>
-          action map extensionsInDir(from = sourceExt, to = targetExt)
+          action mapExtensionsInDir (from = sourceExt, to = targetExt)
       }
     }
 
@@ -83,7 +94,6 @@ object transformers {
           Write(path replaceExtension sourceExt, translate(data))
 
         case Move(path, to) if to.extension == targetExt =>
-          import syntax._
           for {
             metadata <- Resolve(path)
             data     =  metadata[Node] match {
