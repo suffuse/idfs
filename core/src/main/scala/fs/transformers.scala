@@ -9,7 +9,8 @@ object transformers {
 
     def transform[A]: Action[A] =?> Action[A]
 
-    def apply[A](action: Action[A]): Action[A] = if (transform isDefinedAt action) transform(action) else action
+    def apply[A](action: Action[A]): Action[A] =
+      if (transform isDefinedAt action) transform(action) else action
 
     def orElse(other: Transformer): Transformer =
       new Transformer {

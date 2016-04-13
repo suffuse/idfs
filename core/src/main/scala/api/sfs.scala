@@ -16,7 +16,7 @@ object Filesystem {
 
     object reads extends TransformedFilesystem(fs, transformers.RemoveWrites) {
       def transform(transformer: Action ~> Action) =
-        ops transform transformer andThen transformers.RemoveWrites
+        this andThen transformer
 
       def map(f: Action[Metadata] => Action[Metadata]) =
         this transform transformers.map(f)

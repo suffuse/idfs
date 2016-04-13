@@ -272,9 +272,10 @@ class FuseFs(fs: Filesystem, name: String, logging: Boolean) {
     if (logging) fuse.logging else fuse
   }
 
-  def mountBackground(mountPoint: Path): this.type = doMount(mountPoint, blocking = false)
-  def mount(mountPoint: Path): this.type           = doMount(mountPoint, blocking = true)
-  def mount(mountPoint: String): this.type         = mount(toPath(mountPoint))
+  def mountBackground(mountPoint: Path): this.type   = doMount(mountPoint, blocking = false)
+  def mountBackground(mountPoint: String): this.type = mountBackground(toPath(mountPoint))
+  def mount(mountPoint: Path): this.type             = doMount(mountPoint, blocking = true)
+  def mount(mountPoint: String): this.type           = mount(toPath(mountPoint))
 
   def unmountTry(): Unit = (
     if (!fuse.isMounted)

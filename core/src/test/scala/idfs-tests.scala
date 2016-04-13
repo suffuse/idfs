@@ -9,7 +9,7 @@ final class IdfsTests {
 
   @Test
   def mountHomeDir(): Unit = {
-    val fs = new idfs.Rooted(homeDir) mountBackground mnt
+    val fs = idfs(homeDir.to_s, mnt.to_s).notLogging.mountBackground()
     val s1 = mnt.ls.map(_.filename).sorted.mkString(" ")
     val s2 = homeDir.ls.map(_.filename).sorted.mkString(" ")
     assertEquals(s1, s2)
