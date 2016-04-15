@@ -45,7 +45,47 @@ object concatfs extends FsRunner {
       mountPoint = to
     )
   }
+}
+object alpacafs extends FsRunner {
+  def usage  = "<mnt>"
+  def create = { case Array(to) =>
 
+    val alpacas = {
+      val engine = new javax.script.ScriptEngineManager(null).getEngineByName("nashorn")
+      val jsonString = scala.io.Source.fromURL("https://pixabay.com/api/?key=2402541-85e6adf7e75344777600b15f3&q=alpaca").mkString
+      val json = engine.eval(s"(function(){return $jsonString;})()").asMirror
+      json.get("hits").asIterable.map(_.asMirror.get("previewURL").asString).map(s => toPath(s).filename -> s).toMap
+    }
+
+    val fs =
+      new Filesystem with ResolveOnly {
+        def resolve = {
+          case Resolve(Root) => Metadata(Dir(alpacas.keySet))
+
+          case Resolve(path) if alpacas contains path.filename =>
+
+            val bytes = {
+              val in = new java.net.URL(alpacas(path.filename)).openStream
+              try Stream.continually(in.read).takeWhile(_ != -1).map(_.toByte).toArray finally in.close()
+            }
+
+            Metadata(
+              File(bytes),
+              UnixPerms("r--r--r--")
+            )
+          case _ => Metadata.empty
+        }
+      }
+
+    prepare(fs, to)
+  }
+
+  private implicit class ObjectOps(o: Object) {
+    import scala.collection.JavaConverters._
+    def asMirror   = o.asInstanceOf[jdk.nashorn.api.scripting.ScriptObjectMirror]
+    def asIterable = o.asMirror.values.asScala
+    def asString   = o.asInstanceOf[String]
+  }
 }
 
 /** Generic SFS runner.
@@ -81,7 +121,7 @@ abstract class FsRunner(logging: Boolean = false) {
 
   class Mountable(val fs: Filesystem, logging: Boolean = false) extends FuseFs(fs, name, logging)
 
-  class PreparedFilesystem(fs: Filesystem, mountPoint: String, logging: Boolean = logging) {
+  class PreparedFilesystem(val fs: Filesystem, mountPoint: String, logging: Boolean = logging) {
     private lazy val mountable = new Mountable(fs, logging)
     def mount()                = mountable mount mountPoint
     def mountBackground()      = mountable mountBackground mountPoint

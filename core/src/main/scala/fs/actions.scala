@@ -49,11 +49,13 @@ sealed abstract class ConcreteAction[A : Empty] extends Action[A] {
   def mapPath(f: Path => Path): ConcreteAction[A]
 }
 
+sealed abstract class EffectAction extends ConcreteAction[Unit]
+
 case class Resolve   (path: Path)                         extends ConcreteAction[Metadata] { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class CreateFile(path: Path, permissions: UnixPerms) extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class CreateDir (path: Path, permissions: UnixPerms) extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class CreateLink(path: Path, target: String)         extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class Update    (path: Path, metadata: Metadata)     extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class Move      (path: Path, to: Path)               extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class Write     (path: Path, data: Data)             extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
-case class Remove    (path: Path)                         extends ConcreteAction[Unit]     { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class CreateFile(path: Path, permissions: UnixPerms) extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class CreateDir (path: Path, permissions: UnixPerms) extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class CreateLink(path: Path, target: String)         extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class Update    (path: Path, metadata: Metadata)     extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class Move      (path: Path, to: Path)               extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class Write     (path: Path, data: Data)             extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }
+case class Remove    (path: Path)                         extends EffectAction             { def mapPath(f: Path => Path) = copy(path = f(path)) }

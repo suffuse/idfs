@@ -49,3 +49,13 @@ trait ConcreteActionsOnly { _: Filesystem =>
       case FlatMapAction(a, f)  => apply(apply(a) |> f)
     }
 }
+
+trait ResolveOnly extends ConcreteActionsOnly { _: Filesystem =>
+  protected def resolve: Resolve => Metadata
+
+  protected def handleConcreteAction[A](action: ConcreteAction[A]): A =
+    action match {
+      case r: Resolve      => resolve(r)
+      case x: EffectAction => x.emptyResult
+    }
+}
