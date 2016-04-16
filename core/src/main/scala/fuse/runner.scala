@@ -1,7 +1,7 @@
 package sfs
 package fuse
 
-import api._, fs._, attributes._
+import api._, fs._, attributes._, json._
 
 object idfs extends FsRunner(logging = true) {
   def usage  = "<from> <to>"
@@ -51,10 +51,11 @@ object alpacafs extends FsRunner {
   def create = { case Array(to) =>
 
     val alpacas = {
-      val engine = new javax.script.ScriptEngineManager(null).getEngineByName("nashorn")
-      val jsonString = scala.io.Source.fromURL("https://pixabay.com/api/?key=2402541-85e6adf7e75344777600b15f3&q=alpaca").mkString
-      val json = engine.eval(s"(function(){return $jsonString;})()").asMirror
-      json.get("hits").asIterable.map(_.asMirror.get("previewURL").asString).map(s => toPath(s).filename -> s).toMap
+      val result = scala.io.Source.fromURL("https://pixabay.com/api/?key=2402541-85e6adf7e75344777600b15f3&q=alpaca").mkString
+      result.json.asMap("hits").asSeq
+        .map(_.asMap("previewURL").as[String])
+        .map(s => toPath(s).filename -> s)
+        .toMap
     }
 
     val fs =
@@ -78,13 +79,6 @@ object alpacafs extends FsRunner {
       }
 
     prepare(fs, to)
-  }
-
-  private implicit class ObjectOps(o: Object) {
-    import scala.collection.JavaConverters._
-    def asMirror   = o.asInstanceOf[jdk.nashorn.api.scripting.ScriptObjectMirror]
-    def asIterable = o.asMirror.values.asScala
-    def asString   = o.asInstanceOf[String]
   }
 }
 
