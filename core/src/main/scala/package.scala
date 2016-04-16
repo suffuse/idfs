@@ -1,5 +1,6 @@
 import scala.util.{ Success, Failure }
-import scala.sys.process.{ Process, ProcessLogger }
+import scala.sys.process.{ Process, ProcessIO, BasicIO }
+import java.io.{ InputStream, OutputStream }
 import sfs.api._
 
 package object sfs {
@@ -16,13 +17,24 @@ package object sfs {
     counts.toVector sortBy (-_._2) map { case (k, n) => "%-5s %s".format(n, k) } foreach println
   }
 
-  def exec(argv: String*): ExecResult = {
-    val cmd      = argv.toVector
-    var out, err = Vector[String]()
-    val logger   = ProcessLogger(out :+= _, err :+= _)
-    val exit     = Process(cmd, None) ! logger
+  def exec(argv: String*): ExecResult =
+    exec(None, argv)
 
-    ExecResult(cmd, exit, out, err)
+  def exec(input: Array[Byte], argv: String *): ExecResult =
+    exec(Some(input), argv)
+
+  def exec(input: Option[Array[Byte]], argv: Seq[String]): ExecResult = {
+    val cmd      = argv.toVector
+    var out, err = Vector[Byte]()
+
+    def sendInput: OutputStream => Unit = { out => input foreach out.write; out.close() }
+    def connect(out: OutputStream): InputStream => Unit = BasicIO.transferFully(_, out)
+    def process(f: Byte => Unit) = connect(new OutputStream { def write(b: Int) = f(b.toByte) })
+
+    val io    = new ProcessIO(sendInput, process(out :+= _), process(err :+= _))
+    val exit  = Process(cmd, None).run(io).exitValue()
+
+    ExecResult(cmd, exit, out.toArray, err.toArray)
   }
 
   implicit class AnyOps[A](val x: A) {
@@ -41,7 +53,18 @@ package object sfs {
     }
   }
 
-  implicit class FunctorOps[F[_], A](fa: F[A])(implicit F: Functor[F]) {
-    def map[B](f: A => B): F[B] = F.map(f)(fa)
+  implicit class ClassOps[A](val c: Class[A]) {
+    def shortName: String = ((c.getName.stripSuffix("$") split "[.]").last split "[$]").last
+  }
+
+  implicit class StringOps(val s: String) extends AnyVal {
+    def extension = {
+      val i = s.lastIndexOf(".")
+      if (i < 0) ""
+      else s.substring(i + 1)
+    }
+
+    def replaceExtension(newExtenstion: String) =
+      s.stripSuffix(extension) + newExtenstion
   }
 }

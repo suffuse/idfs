@@ -1,22 +1,22 @@
 package sfs
 package api
 
+import scala.reflect.ClassTag
+
 object attributes {
   // underscore on implicits to prevent shadowing
 
-  abstract class FileTimeBased[This](create: FileTime => This) {
-    def timestamp: FileTime
-    def +(amount: Duration): This = create(timestamp + amount)
-  }
-
   final case class UnixPerms(mask: Long) {
-    import UnixPerms._
-
-    def bits: Set[Long] = BitsSet filter (bit => (bit & mask) != 0)
-
-    override def toString = permString(mask)
+    override def toString = UnixPerms permString mask
+    def noWrites: UnixPerms =
+      UnixPerms(mask & (UnixPerms toMask "r-xr-xr-x"))
   }
   object UnixPerms {
+
+    def apply(perms: String): UnixPerms = UnixPerms(toMask(perms))
+
+    def toBitSet(mask: Long): Set[Long] = BitsSet filter (bit => (bit & mask) != 0)
+
     val Bits = Vector[Long](
       1 << 8,
       1 << 7,
@@ -33,36 +33,49 @@ object attributes {
 
     private def permString(mask: Long): String =
       ( for ((perm, ch) <- Bits zip Letters) yield if ((mask & perm) == 0) '-' else ch ) mkString ""
+
+    private def toMask(perms: String): Long =
+      ( for ((perm, ch) <- Bits zip perms.toSeq ; if ch != '-') yield perm ).foldLeft(0L)(_ | _)
   }
   implicit val _unixPerms = new Key[UnixPerms]("unix permissions")
 
-  final class NodeType(`type`: String) extends api.ShowSelf {
-    def to_s = `type`
-  }
-  implicit val _nodeType = new api.Key[NodeType]("type of node")
+  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](Mtime)
+  implicit val _mtime = new api.Key[Mtime]("modification time")
 
-  final case class Mtime(timestamp: FileTime) extends FileTimeBased[Mtime](x => Mtime(x)) {
-    override def hashCode = timestamp.toMillis.##
-    override def equals(that: Any) = that match {
-      case Mtime(other) => timestamp.toMillis == other.toMillis
-      case _            => super.equals(that)
-    }
-  }
-  implicit val _mtime = new api.Key[Mtime]("modification time in ...")
+  final case class Atime(timestamp: FileTime) extends FileTimeBased[Atime](Atime)
+  implicit val _atime = new api.Key[Atime]("access time")
 
-  final case class Atime(timestamp: FileTime)
-  implicit val _atime = new api.Key[Atime]("access time in ...")
+  final case class Ctime(timestamp: FileTime) extends FileTimeBased[Ctime](Ctime)
+  implicit val _ctime = new api.Key[Ctime]("node or file change time")
+
+  final case class Birth(timestamp: FileTime) extends FileTimeBased[Birth](Birth)
+  implicit val _birth = new api.Key[Birth]("creation time")
 
   final case class Size(bytes: Long)
   implicit val _size = new api.Key[Size]("size in bytes")
 
   final case class Uid(value: Int)
-  implicit val _uid = new api.Key[Uid]("uid ...")
+  implicit val _uid = new api.Key[Uid]("user id")
+
+  final case class Gid(value: Int)
+  implicit val _gid = new api.Key[Gid]("group id")
 
   final case class BlockCount(amount: Long)
   implicit val _blockCount = new api.Key[BlockCount]("number of blocks")
 
-  val File = new NodeType("file")
-  val Dir  = new NodeType("dir" )
-  val Link = new NodeType("link")
+  final case class Nlink(count: Int)
+  implicit val _nlink = new api.Key[Nlink]("number of links")
+
+  abstract class FileTimeBased[This <: FileTimeBased[This] : ClassTag](val create: FileTime => This) {
+    _: This  => // helps to prevent us from making copy-paste mistakes
+
+    def timestamp: FileTime
+    def +(amount: Duration): This = create(timestamp + amount)
+
+    override def hashCode = timestamp.toMillis.##
+    override def equals(that: Any) = that match {
+      case other: This  => timestamp.toMillis == other.timestamp.toMillis
+      case _            => super.equals(that)
+    }
+  }
 }

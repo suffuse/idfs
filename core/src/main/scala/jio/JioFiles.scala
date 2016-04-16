@@ -27,7 +27,7 @@ class JioFollow(path: Path) {
   def setAttribute[A](attribute: String, value: A): Path                = F.setAttribute(path, attribute, value)
 
   private def mustFollow[A](opts: Seq[A]): Seq[A]      = opts filterNot (_ == NOFOLLOW_LINKS)
-  private def mustFollowSet[A](opts: jSet[A]): jSet[A] = opts.asScala filterNot (_ == NOFOLLOW_LINKS) asJava
+  private def mustFollowSet[A](opts: jSet[A]): jSet[A] = (opts.asScala filterNot (_ == NOFOLLOW_LINKS)).asJava
 
   def copy(target: Path, options: CopyOption*): Path                                           = F.copy(path, target, mustFollow(options): _*)
   def move(target: Path, options: CopyOption*): Path                                           = F.move(path, target, mustFollow(options): _*)
@@ -109,4 +109,5 @@ class JioFilesInstance(path: Path) {
   def setPosixFilePermissions(perms: jFilePermissions): Path                = F.setPosixFilePermissions(path, perms)
   def size(): Long                                                          = F.size(path)
   def walkFileTree(visitor: FileVisitor[_ >: Path]): Path                   = F.walkFileTree(path, visitor)
+  def withDirStream[A](code: jStream[Path] => A): A                         = F.list(path) |> (str => try code(str) finally str.close())
 }

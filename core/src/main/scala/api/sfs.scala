@@ -1,55 +1,61 @@
 package sfs
 package api
 
+import attributes._, fs._
+
 trait Filesystem {
-
-  /** Allows for effects
-   */
-  type M[_]
-
-  /** A Path is a serialization of the steps one must take from
-   *  the root to a particular node in the tree. A Name is a single
-   *  directed edge of the graph.
-   */
-  type Path
-  type Name
-
-  /** A key of some kind, only meaningful within this filesystem,
-   *  which uniquely pinpoints the entity to which a path resolves.
-   *  It is decoupled from the name.
-   */
-  type Key
-
-  /** Some means of performing I/O on a virtualized file.
-   */
-  type IO
-
-  /** There are a number of ways we could arrange the "primitives"
-   *  here. The most important thing is to retain the decoupling at
-   *  abstraction boundaries so that one does not wind up computing
-   *  things too eagerly, nor caching data for too long.
-   */
-  def resolve(path: Path): Key
-  def metadata(key: Key): M[Metadata]
-  def lookup(key: Key): M[Data]
-
-  sealed trait Data                              extends AnyRef
-  final case class File(io: IO)                  extends Data
-  final case class Dir(children: Map[Name, Key]) extends Data
-  final case class Link(target: Path)            extends Data
-
-  object Dir { implicit def emptyDir: Empty[Dir] = Empty(Dir(Map.empty)) }
-
-  val isFile: Data =?> Unit = { case File(_) => }
-  val isLink: Data =?> Unit = { case Link(_) => }
-  val isDir : Data =?> Unit = { case Dir (_) => }
+  def apply[A](action: Action[A]): A
 }
 
-trait UnixLikeFilesystem extends Filesystem {
-  /** These could have stronger types - this is the minimal example.
-   */
-  type Path = String
-  type Name = String       // assert(name forall (ch != '/'))
-  type Key  = Long         // 64-bit inode
-  type IO   = Array[Byte]  // for maximum simplicity, but even unix isn't this simple
+object Filesystem {
+
+  implicit class FilesystemOps(fs: Filesystem) { ops =>
+
+    def transform(transformer: Action ~> Action) =
+      new TransformedFilesystem(fs, transformer)
+
+    object reads extends TransformedFilesystem(fs, transformers.RemoveWrites) {
+      def transform(transformer: Action ~> Action) =
+        this andThen transformer
+
+      def map(f: Action[Metadata] => Action[Metadata]) =
+        this transform transformers.map(f)
+
+      def filter(p: Path => Boolean) =
+        this transform transformers.filter(p)
+
+      def filterNot(p: Path => Boolean) =
+        filter(p andThen (!_))
+
+      def concat(other: Filesystem) =
+        this transform transformers.concat(other)
+    }
+  }
+}
+
+class TransformedFilesystem(fs: Filesystem, transformer: Action ~> Action) extends Filesystem {
+  def apply[A](action: Action[A]): A  = fs apply transformer(action)
+  def andThen(next: Action ~> Action) = new TransformedFilesystem(fs, transformer andThen next)
+}
+
+trait ConcreteActionsOnly { _: Filesystem =>
+
+  protected def handleConcreteAction[A](action: ConcreteAction[A]): A
+
+  def apply[A](action: Action[A]): A =
+    action match {
+      case a: ConcreteAction[A] => handleConcreteAction(a)
+      case InstantResult(a)     => a
+      case FlatMapAction(a, f)  => apply(apply(a) |> f)
+    }
+}
+
+trait ResolveOnly extends ConcreteActionsOnly { _: Filesystem =>
+  protected def resolve: Resolve => Metadata
+
+  protected def handleConcreteAction[A](action: ConcreteAction[A]): A =
+    action match {
+      case r: Resolve      => resolve(r)
+      case x: EffectAction => x.emptyResult
+    }
 }

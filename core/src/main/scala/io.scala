@@ -3,8 +3,8 @@ package sfs
 final case class ExecResult(
   argv: Vector[String],
   exitCode: Int,
-  stdout: Vector[String],
-  stderr: Vector[String]
+  stdout: Array[Byte],
+  stderr: Array[Byte]
 ) {
 
   def isEmpty = exitCode != 0

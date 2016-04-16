@@ -5,15 +5,32 @@ import java.util.concurrent.TimeUnit
 
 trait Api {
   type =?>[-A, +B] = scala.PartialFunction[A, B]
+  type Attribute   = metadata.Attribute
+  val  Attribute   = metadata.Attribute
   type Buf         = java.nio.ByteBuffer
   type CTag[A]     = scala.reflect.ClassTag[A]
+  type Data        = Array[Byte]
   type Duration    = scala.concurrent.duration.Duration
   type FileTime    = java.nio.file.attribute.FileTime
   type Iso[A]      = A => A
+  type Key[A]      = metadata.KeyDefinition[A]
+  type LinkTarget  = String // Could be anything as long as implementations on both sides are able to serialize to it
+  type Metadata    = metadata.Metadata
+  val  Metadata    = metadata.Metadata
+  type Name        = String
+  type Path        = jio.Path
   type Try[+A]     = scala.util.Try[A]
   type uV          = scala.annotation.unchecked.uncheckedVariance
 
+  val Root = toPath("/")
+
+  implicit val _emptyData    : Empty[Data]     = Empty(Array.empty[Byte])
+  implicit val _emptyMetadata: Empty[Metadata] = Empty(Metadata.empty)
+  implicit val _emptyUnit    : Empty[Unit]     = Empty({})
+
+  val UTF8 = jio.UTF8
   def unit = ()
+  def toPath: String => Path = jio.path
 
   def classOf[A](implicit z: CTag[A]): Class[A] = classTag[A].runtimeClass.asInstanceOf[Class[A]]
   def classTag[A](implicit z: CTag[A]): CTag[A] = z
