@@ -46,8 +46,8 @@ abstract class FsRunner {
   }
 
   class Rooted(val root: Path, val fs: FuseCompatibleFs) extends RootedFs {
-    def this(root: String) = this(path(root), fuseJavaFs(path(root)))
     def this(root: Path) = this(root, fuseJavaFs(root))
+    def this(root: String) = this(path(root))
     def getName = name
   }
 
