@@ -3,17 +3,23 @@ package fuse
 
 import jio._, api._
 
+/** The identity filesystem.
+  */
 object idfs extends FsRunner {
   def runMain = { case Array(from, to) =>
     start(new Rooted(from).logging, to)
   }
 }
+/** Only passes through paths which match the given regex.
+ */
 object filterfs extends FsRunner {
   override def usage = "<from> <to> <regex>"
   def runMain = { case Array(from, to, regex) =>
     start(new Rooted(from) filterNot (_ matches regex), to)
   }
 }
+/** Reverses all the data on the filesystem.
+ */
 object reversefs extends FsRunner {
   trait Reverser extends RootedFs {
     override protected def pathBytes(path: Path): Array[Byte] =
@@ -24,8 +30,6 @@ object reversefs extends FsRunner {
   }
 }
 
-/** Reverses all the data on the filesystem.
- */
 /** Generic SFS runner.
  */
 abstract class FsRunner {
