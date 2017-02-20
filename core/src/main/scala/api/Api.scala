@@ -1,8 +1,6 @@
 package sfs
 package api
 
-import java.util.concurrent.TimeUnit
-
 trait Api {
   type =?>[-A, +B] = scala.PartialFunction[A, B]
   type Buf         = java.nio.ByteBuffer

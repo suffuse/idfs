@@ -1,7 +1,7 @@
 package sfs
 package tests
 
-import fuse._, jio._, api._
+import api._
 import attributes._
 import org.junit._, Assert._
 import scala.concurrent.duration._
