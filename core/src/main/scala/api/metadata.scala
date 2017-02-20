@@ -15,7 +15,7 @@ package api
 /** A Metadata map, holding any number of well typed Attributes.
  *  A typed value can be obtained for any key.
  */
-sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
+final class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
   md =>
 
   private val untypedMap                         = attributes.foldLeft(Map[Key[_], Any]())(_ + _.pair)
@@ -60,8 +60,8 @@ sealed class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
 
   def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
 }
-object Metadata extends Metadata(Vector()) {
-  def apply(attributes: Attribute*): Metadata = attributes.foldLeft(this: Metadata)(_ set _)
+object Metadata {
+  def apply(attributes: Attribute*): Metadata = attributes.foldLeft(new Metadata(Vector.empty))(_ set _)
 }
 
 /** Attribute is a dependently typed key/value pair.
