@@ -1,7 +1,7 @@
 package sfs
 package tests
 
-import fuse._, jio._, api._
+import api._
 import attributes._
 import org.junit._, Assert._
 import scala.concurrent.duration._
@@ -12,7 +12,7 @@ final class MetadataTests {
   @Test
   def monadsAndMetadata(): Unit = {
     val stamp = Mtime(FileTime seconds 123)
-    var attrs = Metadata set stamp
+    var attrs = Metadata() set stamp
     assertEquals(attrs[Mtime], stamp)
 
     attrs = attrs mapOnly { case Attribute(n: Mtime) => Attribute(n + 1.day) }

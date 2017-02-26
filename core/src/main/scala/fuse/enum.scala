@@ -1,8 +1,6 @@
 package sfs
 package fuse
 
-import jio._
-
 /** Cleaning up the javacentric fuse-jna types.
  */
 object Node {

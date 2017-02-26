@@ -20,7 +20,6 @@ trait Pathish[Rep] {
   def readlink: Rep             = asRep(path.readSymbolicLink)
 
   def metadata: Metadata = {
-    import jnfa.PosixFilePermission._
     import api.attributes._
     val metadata =
       Metadata(

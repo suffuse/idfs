@@ -33,10 +33,11 @@ trait Filesystem {
   def metadata(key: Key): M[Metadata]
   def lookup(key: Key): M[Data]
 
-  sealed trait Data                              extends AnyRef
-  final case class File(io: IO)                  extends Data
-  final case class Dir(children: Map[Name, Key]) extends Data
-  final case class Link(target: Path)            extends Data
+  sealed trait Data                               extends AnyRef
+  /* These would be final if it weren't for the "semantics out of a nightmare" */
+  sealed case class File(io: IO)                  extends Data
+  sealed case class Dir(children: Map[Name, Key]) extends Data
+  sealed case class Link(target: Path)            extends Data
 
   object Dir { implicit def emptyDir: Empty[Dir] = Empty(Dir(Map.empty)) }
 
