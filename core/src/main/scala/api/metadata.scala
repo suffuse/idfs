@@ -61,7 +61,7 @@ final class Metadata(val attributes: Vector[Attribute]) extends ShowSelf {
   def to_s = if (isEmpty) "{ }" else attributes mkString ("{\n  ", "\n  ", "\n}")
 }
 object Metadata {
-  def apply(attributes: Attribute*): Metadata = attributes.foldLeft(new Metadata(Vector.empty))(_ set _)
+  def apply(attributes: Attribute*): Metadata = new Metadata(attributes.toVector)
 }
 
 /** Attribute is a dependently typed key/value pair.
